@@ -1,0 +1,36 @@
+{
+  "name": "cerge_ai_buddy",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@react-native-community/netinfo": "11.3.1",
+    "axios": "^1.7.9",
+    "expo": "~51.0.28",
+    "expo-build-properties": "^0.13.2",
+    "expo-file-system": "~17.0.1",
+    "expo-image-manipulator": "~12.0.5",
+    "expo-image-picker": "~15.1.0",
+    "expo-media-library": "~16.0.5",
+    "expo-status-bar": "~1.12.1",
+    "react": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-gesture-handler": "~2.16.1",
+    "react-native-reanimated": "~3.10.1",
+    "react-native-safe-area-context": "4.10.5",
+    "react-native-sortables": "^1.1.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~18.2.79",
+    "reactotron-react-native": "^5.1.12",
+    "typescript": "~5.3.3"
+  },
+  "private": true,
+  "packageManager": "yarn@3.6.4+sha512.e70835d4d6d62c07be76b3c1529cb640c7443f0fe434ef4b6478a5a399218cbaf1511b396b3c56eb03bc86424cff2320f6167ad2fde273aa0df6e60b7754029f"
+}
