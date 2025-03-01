@@ -19,6 +19,7 @@ interface Area extends Sensory {
 interface SectionData {
   areas: Area[];
   venueName: string;
+  prompt?: string;
 }
 
 interface SectionDataRes {

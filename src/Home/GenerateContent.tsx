@@ -1,24 +1,20 @@
 import { memo } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
+import Button from "../components/Button";
 import colors from "../utils/colors";
 
 const GenerateContent = ({
   isVisible,
   data,
   setAdditionalInfo,
+  isOnline,
   loading,
   generateContent,
 }: {
   isVisible: boolean;
-  data: string;
+  data?: string;
   setAdditionalInfo: (data: string) => void;
+  isOnline?: boolean;
   loading: boolean;
   generateContent: () => void;
 }) => {
@@ -28,7 +24,6 @@ const GenerateContent = ({
       <Text style={styles.buttonText}>
         Additional information about section
       </Text>
-
       <TextInput
         value={data}
         onChangeText={setAdditionalInfo}
@@ -38,22 +33,12 @@ const GenerateContent = ({
         placeholder="Enter additional information..."
         placeholderTextColor="#999"
       />
-
-      <Pressable
+      <Button
         onPress={generateContent}
-        style={({ pressed }: { pressed: boolean }) => [
-          styles.updateButton,
-          pressed && styles.pressedUpdateButton,
-        ]}
-        disabled={loading}
-        android_ripple={{ color: "#ffffff44" }}
-      >
-        {loading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.updateButtonText}>Generate Content</Text>
-        )}
-      </Pressable>
+        title={"Generate Content"}
+        isLoading={loading}
+        isOnline={isOnline}
+      />
     </View>
   );
 };
@@ -78,22 +63,6 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     minHeight: 100,
     maxHeight: 300,
-  },
-  updateButton: {
-    backgroundColor: colors.primary,
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pressedUpdateButton: {
-    opacity: 0.8,
-  },
-  updateButtonText: {
-    color: colors.background,
-    fontSize: 14,
-    fontWeight: "500",
   },
 });
 

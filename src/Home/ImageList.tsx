@@ -8,11 +8,19 @@ import {
   Text,
   View,
 } from "react-native";
-import { SectionImage } from "../lib/sectionImageType";
+import { SectionImage, Status } from "../lib/sectionImageType";
 import colors from "../utils/colors";
+import { Icon } from "../components/Icon";
 
 const IMAGE_HEIGHT = 200;
 const COLUMN_GAP = 12;
+
+export const statusIconMap: Record<Status, string> = {
+  pending: "🕒",
+  uploading: "⬆️",
+  success: "✅",
+  failed: "❌",
+};
 
 const EmptyComponent = memo(() => (
   <View style={styles.emptyContainer}>
@@ -31,7 +39,8 @@ const SeparatorComponent = memo(() => <View style={styles.separator} />);
 const ImageItem = memo(({ item }: { item: SectionImage }) => {
   const imageSource = useMemo(
     () => ({
-      uri: item.blob == "" ? item?.path : `data:${item.type};base64,${item.blob}`,
+      uri:
+        item.blob == "" ? item?.path : `data:${item.type};base64,${item.blob}`,
     }),
     [item.type, item.blob, item?.path]
   );
@@ -44,6 +53,16 @@ const ImageItem = memo(({ item }: { item: SectionImage }) => {
         resizeMode="cover"
         fadeDuration={100}
       />
+      <Text
+        style={{
+          ...styles.status,
+          backgroundColor: colors[item.status ?? "success"],
+        }}
+      >
+        {statusIconMap[item?.status ?? "success"]}
+        {"  "}
+        {item?.status ?? "success"}
+      </Text>
     </View>
   );
 });
@@ -97,7 +116,6 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    backgroundColor: colors.background,
     borderRadius: 8,
     overflow: "hidden",
     elevation: 2,
@@ -128,6 +146,15 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: COLUMN_GAP,
+  },
+  status: {
+    height: 30,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.text,
+    textAlign: "center",
+    verticalAlign: "middle",
+    textTransform: "capitalize",
   },
 });
 

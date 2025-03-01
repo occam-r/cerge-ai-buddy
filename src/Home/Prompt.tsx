@@ -5,27 +5,37 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   View,
 } from "react-native";
+import Button from "../components/Button";
 import { Icon } from "../components/Icon";
 import colors from "../utils/colors";
 
 const Prompt = ({
   data,
   getPrompt,
-  setPrompt,
   loading,
+  isOnline,
   updatePrompt,
 }: {
   data: string;
   getPrompt: () => void;
-  setPrompt: (data: string) => void;
   updatePrompt: (prompt: string) => void;
   loading: boolean;
+  isOnline?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [prompt, setPrompt] = useState(data);
 
   const handleToggle = useCallback(() => {
+    if (!isOnline) {
+      ToastAndroid.show(
+        "Cannot get prompt offline. Please connect to the internet.",
+        ToastAndroid.LONG
+      );
+      return;
+    }
     if (!expanded) {
       getPrompt();
     }
@@ -33,9 +43,8 @@ const Prompt = ({
   }, [expanded, getPrompt]);
 
   const handleUpdate = useCallback(() => {
-    updatePrompt(data || "");
-    setExpanded(false);
-  }, [data, updatePrompt]);
+    updatePrompt(prompt || "");
+  }, [prompt, updatePrompt]);
 
   return (
     <View style={styles.container}>
@@ -63,7 +72,7 @@ const Prompt = ({
 
       {expanded && (
         <TextInput
-          value={data}
+          value={prompt || data}
           onChangeText={setPrompt}
           style={styles.input}
           multiline
@@ -74,21 +83,12 @@ const Prompt = ({
       )}
 
       {expanded && (
-        <Pressable
+        <Button
           onPress={handleUpdate}
-          style={({ pressed }: { pressed: boolean }) => [
-            styles.updateButton,
-            pressed && styles.pressedUpdateButton,
-          ]}
-          disabled={loading}
-          android_ripple={{ color: "#ffffff44" }}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.updateButtonText}>Update Prompt</Text>
-          )}
-        </Pressable>
+          title="Update Prompt"
+          isLoading={loading}
+          isOnline={isOnline}
+        />
       )}
     </View>
   );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import icons from "../../assets/icons";
 import { Icon } from "../components/Icon";
-import { SectionData, SensoryType } from "../lib/sectionDataType";
+import { Area, SensoryType } from "../lib/sectionDataType";
 import colors from "../utils/colors";
 
 const Content = ({
@@ -21,7 +21,7 @@ const Content = ({
   onUpdate,
   onDescriptionUpdate,
 }: {
-  data: SectionData["areas"];
+  data: Area[];
   loading: boolean;
   onDelete: (sensoryType: SensoryType, index: number) => void;
   onAdd: (sensoryType: SensoryType) => void;
@@ -30,10 +30,6 @@ const Content = ({
 }) => {
   const [description, setDescription] = useState(data[0]?.description || "");
   const [editing, setEditing] = useState(false);
-
-  useEffect(() => {
-    setDescription(data[0]?.description || "");
-  }, [data]);
 
   const descriptionEditHandler = useCallback(() => {
     if (editing) {
@@ -50,7 +46,7 @@ const Content = ({
     );
   }
 
-  if (data.length === 0) {
+  if (!data[0]?.description) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>No data available</Text>
@@ -63,7 +59,7 @@ const Content = ({
       <View style={styles.descriptionContainer}>
         <Text style={styles.sectionTitle}>Description</Text>
         <TextInput
-          value={description}
+          value={description || data[0]?.description}
           style={[styles.descriptionInput, editing && styles.activeInput]}
           onChangeText={setDescription}
           multiline

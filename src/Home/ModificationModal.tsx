@@ -27,7 +27,7 @@ import Sortable, {
   SortableGridRenderItem,
 } from "react-native-sortables";
 import { Icon } from "../components/Icon";
-import { SectionImage } from "../lib/sectionImageType";
+import { SectionImage, Status } from "../lib/sectionImageType";
 import {
   modificationInitialState,
   modificationReducer,
@@ -304,6 +304,7 @@ const ModificationModal = ({
           id: `${timestamp}-${index}`,
           path: asset.uri,
           blob: asset.base64 ?? "",
+          status: 'pending' as Status
         }));
 
         if (type === "camera" && result.assets.length > 0) {

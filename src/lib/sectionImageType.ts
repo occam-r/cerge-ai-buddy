@@ -1,3 +1,7 @@
+import { SectionData } from "./sectionDataType";
+
+type Status = "uploading" | "failed" | "pending" | "success";
+
 interface SectionImage {
   name: string;
   type: string;
@@ -6,6 +10,7 @@ interface SectionImage {
   id: string;
   blob: string;
   path: string;
+  status?: Status;
 }
 
 interface SectionImageRes {
@@ -17,4 +22,30 @@ interface SectionImageReq {
   sectionName: string;
 }
 
-export type { SectionImage, SectionImageRes, SectionImageReq };
+interface UploadImageRes {
+  sectionFolderId: string;
+  message: string;
+}
+
+type ImageUploadType = {
+  uri: string;
+  name: string;
+  type: string;
+};
+
+interface UploadImageReq {
+  image: ImageUploadType;
+  venueName: string;
+  sectionName: string;
+  completedForm: SectionData;
+}
+
+export type {
+  ImageUploadType,
+  SectionImage,
+  SectionImageReq,
+  SectionImageRes,
+  Status,
+  UploadImageReq,
+  UploadImageRes,
+};

@@ -1,15 +1,17 @@
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
 } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { StyleSheet, ToastAndroid } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
+import Button from "../components/Button";
 import DropdownMenu from "../components/DropdownMenu";
 import InputWithChip from "../components/InputWithChip";
-import { SectionData, SensoryType } from "../lib/sectionDataType";
+import { Area, SensoryType } from "../lib/sectionDataType";
 import { SectionImage } from "../lib/sectionImageType";
 import { Section } from "../lib/sectionType";
 import { Venue } from "../lib/venueType";
@@ -21,25 +23,45 @@ import {
   getSectionData,
   getSectionImages,
   getVenues,
+  saveContent,
+  updatePrompt,
+  uploadImages,
 } from "../utils/api";
 import { CACHE_PATHS, readCache, writeCache } from "../utils/cache";
-import colors from "../utils/colors";
 import Content from "./Content";
 import GenerateContent from "./GenerateContent";
 import ImageList from "./ImageList";
 import ModificationModal from "./ModificationModal";
 import Prompt from "./Prompt";
 
+const BATCH_SIZE = 3;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
 const Home = ({ isOnline }: { isOnline: boolean }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const abortControllers = useRef<AbortController[]>([]);
+  const isMounted = useRef(true);
 
   useEffect(() => {
     return () => {
+      isMounted.current = false;
       abortControllers.current.forEach((controller) => controller.abort());
+      abortControllers.current = [];
     };
   }, []);
+
+  const {
+    venue,
+    section,
+    venues,
+    sections,
+    sectionImages,
+    sectionData,
+    loading,
+    prompt,
+  } = useMemo(() => state, [state]);
 
   const fetchData = useCallback(
     async <T,>({
@@ -51,33 +73,32 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       onlineFetch: (signal?: AbortSignal) => Promise<T>;
       cachePath: string;
       offlineCachePath?: string;
-      type: "venues" | "sections" | "images" | "data" | "prompt";
+      type: "venues" | "sections" | "images" | "data";
     }) => {
+      if (!isMounted.current) return;
       dispatch({ type: "SET_LOADING", payload: { [type]: true } });
 
       const controller = new AbortController();
       abortControllers.current.push(controller);
 
       try {
-        let serverData: T = [] as unknown as T;
+        let serverData: T = [] as T;
         if (isOnline) {
           serverData = await onlineFetch(controller.signal);
           await writeCache(cachePath, serverData);
         } else {
           const cached = await readCache<T>(cachePath);
-          serverData = cached || ([] as unknown as T);
+          serverData = cached || ([] as T);
         }
 
-        let offlineData: T = [] as unknown as T;
+        let offlineData: T = [] as T;
         if (offlineCachePath) {
           const offline = await readCache<T>(offlineCachePath);
-          offlineData = offline || ([] as unknown as T);
+          offlineData = offline || ([] as T);
         }
+        if (!isMounted.current) return;
 
-        if (
-          Array.isArray(serverData) ||
-          (offlineCachePath && Array.isArray(offlineData))
-        ) {
+        if (Array.isArray(serverData) || Array.isArray(offlineData)) {
           const mergedData = [
             ...(Array.isArray(serverData) ? serverData : []),
             ...(Array.isArray(offlineData)
@@ -107,22 +128,23 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
             case "data":
               dispatch({
                 type: "SET_SECTION_DATA",
-                payload: mergedData as SectionData["areas"],
+                payload: mergedData as Area[],
               });
               break;
           }
-        } else if (type === "prompt") {
-          dispatch({ type: "SET_PROMPT", payload: serverData as string });
         }
       } catch (error) {
+        if (!isMounted.current) return;
         if (!(error instanceof Error && error.name === "AbortError")) {
           console.error(`Failed to fetch ${type}:`, error);
         }
       } finally {
-        dispatch({ type: "SET_LOADING", payload: { [type]: false } });
-        abortControllers.current = abortControllers.current.filter(
-          (c) => c !== controller
-        );
+        if (isMounted.current) {
+          dispatch({ type: "SET_LOADING", payload: { [type]: false } });
+          abortControllers.current = abortControllers.current.filter(
+            (c) => c !== controller
+          );
+        }
       }
     },
     [isOnline]
@@ -164,7 +186,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
 
   const fetchSectionData = useCallback(
     (venueId: string, sectionLabel: string) => {
-      return fetchData<SectionData["areas"]>({
+      return fetchData<Area[]>({
         onlineFetch: (signal) =>
           getSectionData({ venueId, sectionName: sectionLabel }, signal),
         cachePath: CACHE_PATHS.DATA(venueId, sectionLabel),
@@ -175,27 +197,47 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     [fetchData]
   );
 
-  const fetchPrompt = useCallback(() => {
-    return fetchData<string>({
-      onlineFetch: (signal) => getPrompts(signal),
-      cachePath: CACHE_PATHS.PROMPT,
-      type: "prompt",
-    });
-  }, [fetchData]);
+  const fetchPrompt = useCallback(async () => {
+    dispatch({ type: "SET_LOADING", payload: { prompt: true } });
+
+    const controller = new AbortController();
+    abortControllers.current.push(controller);
+
+    try {
+      const response = await getPrompts(controller.signal);
+
+      if (isMounted.current) {
+        dispatch({ type: "SET_PROMPT", payload: response });
+      }
+    } catch (error) {
+      if (isMounted.current) {
+        console.error(`Failed to update prompt:`, error);
+      }
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: { prompt: false } });
+      if (isMounted.current) {
+        const controllerIndex = abortControllers.current.indexOf(controller);
+        if (controllerIndex !== -1) {
+          abortControllers.current.splice(controllerIndex, 1);
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     fetchVenues();
   }, [fetchVenues]);
 
   const selectVenueHandler = useCallback(
-    (venue: Venue | null) => {
-      dispatch({ type: "SET_SELECTED_VENUE", payload: venue });
+    (newVenue: Venue | null) => {
+      dispatch({ type: "SET_SELECTED_VENUE", payload: newVenue });
       dispatch({ type: "SET_SELECTED_SECTION", payload: null });
       dispatch({ type: "SET_SECTION_IMAGES", payload: [] });
+      dispatch({ type: "SET_SECTION_DATA", payload: [] });
 
-      if (!venue?.isNew && venue?.value) {
-        fetchSection(venue.value);
-      } else if (venue?.isNew) {
+      if (!newVenue?.isNew && newVenue?.value) {
+        fetchSection(newVenue.value);
+      } else if (newVenue?.isNew) {
         const newSection: Section = {
           value: `new-${Date.now()}`,
           label: "1",
@@ -210,12 +252,13 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
   );
 
   const selectSectionHandler = useCallback(
-    (section: Section | null) => {
-      dispatch({ type: "SET_SELECTED_SECTION", payload: section });
+    (newSection: Section | null) => {
+      dispatch({ type: "SET_SELECTED_SECTION", payload: newSection });
+      dispatch({ type: "SET_SECTION_DATA", payload: [] });
       dispatch({ type: "SET_SECTION_IMAGES", payload: [] });
-      if (!section?.isNew && state.venue?.value && section?.label) {
-        const venueId = state.venue.value;
-        const sectionLabel = section.label;
+      if (!newSection?.isNew && venue?.value && newSection?.label) {
+        const venueId = venue.value;
+        const sectionLabel = newSection.label;
 
         Promise.all([
           fetchSectionImage(venueId, sectionLabel),
@@ -223,7 +266,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         ]).catch(console.error);
       }
     },
-    [state.venue, fetchSectionImage, fetchSectionData]
+    [venue, fetchSectionImage, fetchSectionData]
   );
 
   const onVenueChange = useCallback((items: Venue[]) => {
@@ -240,12 +283,53 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
   );
 
   const handlePromptUpdate = useCallback(
-    (prompt: string) => dispatch({ type: "SET_PROMPT", payload: prompt }),
-    []
+    async (newPrompt: string) => {
+      if (newPrompt === prompt) {
+        ToastAndroid.show(
+          "Please change prompt before updating prompt",
+          ToastAndroid.LONG
+        );
+        return;
+      }
+
+      dispatch({ type: "SET_LOADING", payload: { prompt: true } });
+
+      const controller = new AbortController();
+      abortControllers.current.push(controller);
+
+      try {
+        const response = await updatePrompt(prompt, controller.signal);
+
+        if (isMounted.current) {
+          ToastAndroid.show(response, ToastAndroid.SHORT);
+          dispatch({ type: "SET_PROMPT", payload: newPrompt });
+        }
+      } catch (error) {
+        if (isMounted.current) {
+          console.error(`Failed to update prompt:`, error);
+        }
+      } finally {
+        dispatch({ type: "SET_LOADING", payload: { prompt: false } });
+        if (isMounted.current) {
+          const controllerIndex = abortControllers.current.indexOf(controller);
+          if (controllerIndex !== -1) {
+            abortControllers.current.splice(controllerIndex, 1);
+          }
+        }
+      }
+    },
+    [prompt]
   );
+
   const setAdditionalInfo = useCallback(
     (additionalInfo: string) =>
-      dispatch({ type: "SET_ADDITIONAL_INFO", payload: additionalInfo }),
+      dispatch({
+        type: "UPDATE_SECTION_DATA",
+        payload: {
+          key: "promptInput",
+          value: additionalInfo,
+        },
+      }),
     []
   );
 
@@ -267,43 +351,275 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     []
   );
 
+  const handleUploadImages = useCallback(async () => {
+    if (!isOnline) {
+      ToastAndroid.show(
+        "Cannot upload images while offline. Please connect to the internet.",
+        ToastAndroid.LONG
+      );
+      return;
+    }
+
+    const pendingImages = sectionImages
+      .map(({ path, type, status }, index) => ({ path, type, status, index }))
+      .filter(({ status }) => status === "pending");
+
+    if (pendingImages.length === 0) {
+      ToastAndroid.show("No pending images to upload", ToastAndroid.SHORT);
+      return;
+    }
+
+    dispatch({
+      type: "UPDATE_SECTION_DATA",
+      payload: { key: "sectionId", value: section?.value },
+    });
+
+    dispatch({ type: "SET_LOADING", payload: { uploadImage: true } });
+    ToastAndroid.show(
+      `Uploading ${pendingImages.length} images...`,
+      ToastAndroid.SHORT
+    );
+
+    const controller = new AbortController();
+    abortControllers.current.push(controller);
+
+    try {
+      for (let i = 0; i < pendingImages.length; i += BATCH_SIZE) {
+        const batch = pendingImages.slice(i, i + BATCH_SIZE);
+        const results = await processBatch(batch, controller.signal);
+
+        const successCount = results.filter((result) => result.success).length;
+        if (i + BATCH_SIZE < pendingImages.length) {
+          ToastAndroid.show(
+            `Uploaded ${i + successCount} of ${pendingImages.length} images...`,
+            ToastAndroid.SHORT
+          );
+        }
+      }
+
+      ToastAndroid.show("Image upload complete", ToastAndroid.SHORT);
+    } catch (error) {
+      console.error("Batch processing error:", error);
+    } finally {
+      if (isMounted.current) {
+        dispatch({ type: "SET_LOADING", payload: { uploadImage: false } });
+        const controllerIndex = abortControllers.current.indexOf(controller);
+        if (controllerIndex !== -1) {
+          abortControllers.current.splice(controllerIndex, 1);
+        }
+      }
+    }
+  }, [sectionImages, isOnline]);
+
+  const processBatch = async (
+    batch: { path: string; type: string; index: number }[],
+    signal: AbortSignal
+  ) => {
+    return Promise.all(
+      batch.map(async ({ path, type, index }) => {
+        if (!isMounted.current || signal.aborted) {
+          return { index, success: false };
+        }
+
+        dispatch({
+          type: "UPDATE_IMAGE_STATUS",
+          payload: { index, status: "uploading" },
+        });
+
+        let retries = 0;
+        let success = false;
+        let error;
+
+        while (
+          retries <= MAX_RETRIES &&
+          !success &&
+          !signal.aborted &&
+          isMounted.current
+        ) {
+          try {
+            const fileData = {
+              uri: path,
+              name: `${Date.now()}_${index}.jpg`,
+              type: type,
+            };
+
+            await uploadImages(
+              {
+                image: fileData,
+                sectionName: section?.label ?? "",
+                venueName: venue?.label ?? "",
+                completedForm: {
+                  areas: sectionData,
+                  venueName: venue?.value ?? "",
+                  prompt: prompt,
+                },
+              },
+              signal
+            );
+
+            if (isMounted.current && !signal.aborted) {
+              dispatch({
+                type: "UPDATE_IMAGE_STATUS",
+                payload: { index, status: "success" },
+              });
+              success = true;
+            }
+          } catch (err) {
+            error = err;
+            retries++;
+
+            if (isMounted.current && !signal.aborted) {
+              if (retries > MAX_RETRIES) {
+                console.error(
+                  `Failed to upload image ${index} after ${MAX_RETRIES} retries:`,
+                  error
+                );
+                dispatch({
+                  type: "UPDATE_IMAGE_STATUS",
+                  payload: { index, status: "failed" },
+                });
+              } else {
+                await new Promise((resolve) =>
+                  setTimeout(resolve, RETRY_DELAY_MS * retries)
+                );
+              }
+            }
+          }
+        }
+
+        if (!success && isMounted.current && !signal.aborted) {
+          console.error(`Failed to upload image ${index}:`, error);
+        }
+
+        return { index, success };
+      })
+    );
+  };
+
   const handleDescriptionUpdate = useCallback(
-    (value: string) => dispatch({ type: "UPDATE_DESCRIPTION", payload: value }),
+    (description: string) =>
+      dispatch({
+        type: "UPDATE_SECTION_DATA",
+        payload: {
+          key: "description",
+          value: description,
+        },
+      }),
     []
   );
 
   const handleSaveImage = useCallback(
     (images: SectionImage[], shadow: boolean[], hero: boolean[]) => {
       dispatch({ type: "SET_SECTION_IMAGES", payload: images });
-      dispatch({ type: "SET_SHADOW_CORRECTION", payload: shadow });
-      dispatch({ type: "SET_HERO_IMAGE", payload: hero });
+      dispatch({
+        type: "UPDATE_SECTION_DATA",
+        payload: {
+          key: "shadowCorrections",
+          value: shadow,
+        },
+      });
+      dispatch({
+        type: "UPDATE_SECTION_DATA",
+        payload: {
+          key: "heroImages",
+          value: hero,
+        },
+      });
+      ToastAndroid.show("Images saved successfully", ToastAndroid.SHORT);
     },
     []
   );
 
   const handleGenerateContent = useCallback(async () => {
+    if (sectionImages.length === 0) {
+      ToastAndroid.show(
+        "Please add images before generating content",
+        ToastAndroid.LONG
+      );
+      return;
+    }
+
     dispatch({ type: "SET_LOADING", payload: { content: true } });
+    ToastAndroid.show("Generating content...", ToastAndroid.SHORT);
+
+    const controller = new AbortController();
+    abortControllers.current.push(controller);
+
     try {
-      const controller = new AbortController();
-      abortControllers.current.push(controller);
-
-      const response = await generateContent({
-        params: {
-          files: state.sectionImages,
-          userPrompt: state.additionalInfo,
+      const response = await generateContent(
+        {
+          files: sectionImages,
+          userPrompt: sectionData[0]?.promptInput || "",
         },
-        signal: controller.signal,
-      });
+        controller.signal
+      );
 
-      dispatch({
-        type: "SET_SECTION_DATA",
-        payload: [response],
-      });
+      if (isMounted.current) {
+        dispatch({
+          type: "SET_SECTION_DATA",
+          payload: [
+            {
+              ...sectionData[0],
+              ...response,
+            },
+          ],
+        });
+        ToastAndroid.show("Content generated successfully", ToastAndroid.SHORT);
+      }
     } catch (error) {
+      if (isMounted.current) {
+        console.error(`Failed to generate content:`, error);
+      }
     } finally {
       dispatch({ type: "SET_LOADING", payload: { content: false } });
+      if (isMounted.current) {
+        const controllerIndex = abortControllers.current.indexOf(controller);
+        if (controllerIndex !== -1) {
+          abortControllers.current.splice(controllerIndex, 1);
+        }
+      }
     }
-  }, [state]);
+  }, [sectionImages, sectionData, isOnline]);
+
+  const handleSaveContent = useCallback(async () => {
+    dispatch({ type: "SET_LOADING", payload: { content: true } });
+
+    const controller = new AbortController();
+    abortControllers.current.push(controller);
+
+    try {
+      const response = await saveContent(
+        {
+          sectionName: section?.label ?? "",
+          venueName: venue?.label ?? "",
+          completedForm: JSON.stringify({
+            areas: sectionData,
+            venueName: venue?.value ?? "",
+            prompt: prompt,
+          }),
+          promptInput: sectionData[0]?.promptInput ?? "",
+          sensoryData: JSON.stringify(sectionData[0]),
+        },
+        controller.signal
+      );
+
+      if (isMounted.current) {
+        ToastAndroid.show(response, ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      if (isMounted.current) {
+        console.error(`Failed to update prompt:`, error);
+      }
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: { content: false } });
+      if (isMounted.current) {
+        const controllerIndex = abortControllers.current.indexOf(controller);
+        if (controllerIndex !== -1) {
+          abortControllers.current.splice(controllerIndex, 1);
+        }
+      }
+    }
+  }, [section, venue, sectionData, prompt]);
 
   return (
     <ScrollView
@@ -314,63 +630,68 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     >
       <DropdownMenu
         isOnline={isOnline}
-        initialItem={state.venues}
-        loading={state.loading.venues}
+        initialItem={venues}
+        loading={loading.venues}
         onChange={onVenueChange}
-        selectedItem={state.venue}
+        selectedItem={venue}
         setSelectedItem={selectVenueHandler}
       />
       <InputWithChip
         isOnline={isOnline}
-        initialChips={state.sections}
-        loading={state.loading.sections}
+        initialChips={sections}
+        loading={loading.sections}
         onChange={onSectionChange}
-        selectedChip={state.section}
+        selectedChip={section}
         setSelectedChip={selectSectionHandler}
       />
-      <ImageList data={state.sectionImages} loading={state.loading.images} />
-
-      <Pressable
+      <ImageList data={sectionImages} loading={loading.images} />
+      <Button
         onPress={handleModalToggle}
-        style={({ pressed }: { pressed: boolean }) => [
-          styles.updateButton,
-          pressed && styles.pressedUpdateButton,
-        ]}
-        android_ripple={{ color: "#ffffff44" }}
-      >
-        <Text style={styles.updateButtonText}>
-          Add / Rearrange / Modify Images
-        </Text>
-      </Pressable>
+        title={"Add / Rearrange / Modify Images"}
+        isOnline={isOnline}
+      />
+      <Button
+        onPress={handleUploadImages}
+        title={"Upload Images"}
+        isLoading={loading.uploadImage}
+        isOnline={isOnline}
+      />
       <GenerateContent
-        isVisible={state.sectionImages.length > 0}
-        data={state.additionalInfo}
+        isVisible={sectionImages.length > 0}
+        data={sectionData[0]?.promptInput}
         setAdditionalInfo={setAdditionalInfo}
         generateContent={handleGenerateContent}
-        loading={state.loading.content}
+        loading={loading.content}
+        isOnline={isOnline}
       />
       <Prompt
-        data={state.prompt}
+        data={prompt}
         getPrompt={fetchPrompt}
-        setPrompt={handlePromptUpdate}
-        loading={state.loading.prompt}
+        loading={loading.prompt}
         updatePrompt={handlePromptUpdate}
+        isOnline={isOnline}
       />
       <Content
-        data={state.sectionData}
-        loading={state.loading.data}
+        data={sectionData}
+        loading={loading.data}
         onDelete={handleContentDelete}
         onAdd={handleContentAdd}
         onUpdate={handleContentUpdate}
         onDescriptionUpdate={handleDescriptionUpdate}
       />
+      <Button
+        onPress={handleSaveContent}
+        title={"Save Content & Process Images"}
+        isLoading={loading.content}
+        isOnline={isOnline}
+      />
       <ModificationModal
         isOpen={isModalOpen}
         onClose={handleModalToggle}
-        data={state.sectionImages}
+        data={sectionImages}
         onSaved={handleSaveImage}
-        shadowCorrections={state.sectionData[0]?.shadowCorrections ?? []}
-        heroImages={state.sectionData[0]?.heroImages ?? []}
+        shadowCorrections={sectionData[0]?.shadowCorrections ?? []}
+        heroImages={sectionData[0]?.heroImages ?? []}
       />
     </ScrollView>
   );
@@ -381,22 +702,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 66,
-  },
-  updateButton: {
-    backgroundColor: colors.primary,
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pressedUpdateButton: {
-    opacity: 0.8,
-  },
-  updateButtonText: {
-    color: colors.background,
-    fontSize: 14,
-    fontWeight: "500",
   },
 });
 

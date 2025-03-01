@@ -26,7 +26,6 @@ export const CACHE_PATHS = {
     `${CACHE_DIR}data_${venueId}_${section}.json`,
   OFFLINE_DATA: (venueId: string, section: string) =>
     `${CACHE_DIR}offline_data_${venueId}_${section}.json`,
-  PROMPT: `${CACHE_DIR}prompt.json`,
 };
 
 // Helper functions for reading and writing cache

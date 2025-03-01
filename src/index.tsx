@@ -43,7 +43,7 @@ const App = () => {
     <SafeAreaProvider>
       <GestureHandlerRootView>
         <SafeAreaView edges={["top"]} style={styles.container}>
-          <StatusBar style="auto" />
+          <StatusBar style="auto" animated />
           <Home isOnline={isOnline} />
           <Footer />
         </SafeAreaView>

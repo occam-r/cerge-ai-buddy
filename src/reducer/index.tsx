@@ -1,5 +1,5 @@
-import { SectionData, SensoryType } from "../lib/sectionDataType";
-import { SectionImage } from "../lib/sectionImageType";
+import { Area, SensoryType } from "../lib/sectionDataType";
+import { SectionImage, Status } from "../lib/sectionImageType";
 import { Section } from "../lib/sectionType";
 import { Venue } from "../lib/venueType";
 
@@ -9,13 +9,13 @@ type State = {
   venues: Venue[];
   sections: Section[];
   sectionImages: SectionImage[];
-  sectionData: SectionData["areas"];
+  sectionData: Area[];
   prompt: string;
-  additionalInfo: string;
   loading: {
     venues: boolean;
     sections: boolean;
     images: boolean;
+    uploadImage: boolean;
     data: boolean;
     prompt: boolean;
     content: boolean;
@@ -26,7 +26,7 @@ type Action =
   | { type: "SET_VENUES"; payload: Venue[] }
   | { type: "SET_SECTIONS"; payload: Section[] }
   | { type: "SET_SECTION_IMAGES"; payload: SectionImage[] }
-  | { type: "SET_SECTION_DATA"; payload: SectionData["areas"] }
+  | { type: "SET_SECTION_DATA"; payload: Area[] }
   | { type: "SET_SELECTED_VENUE"; payload: Venue | null }
   | { type: "SET_SELECTED_SECTION"; payload: Section | null }
   | { type: "SET_LOADING"; payload: Partial<State["loading"]> }
@@ -40,14 +40,14 @@ type Action =
       payload: { sensoryType: SensoryType; value: string; index: number };
     }
   | {
-      type: "UPDATE_DESCRIPTION";
-      payload: string;
+      type: "UPDATE_SECTION_DATA";
+      payload: {
+        [K in keyof Area]: { key: K; value: Area[K] };
+      }[keyof Area];
     }
   | { type: "SET_PROMPT"; payload: string }
-  | { type: "SET_ADDITIONAL_INFO"; payload: string }
-  | { type: "SET_SHADOW_CORRECTION"; payload: boolean[] }
-  | { type: "SET_HERO_IMAGE"; payload: boolean[] }
-  | { type: "DELETE_IMAGE"; payload: number };
+  | { type: "DELETE_IMAGE"; payload: number }
+  | { type: "UPDATE_IMAGE_STATUS"; payload: { index: number; status: Status } };
 
 export const initialState: State = {
   venue: null,
@@ -57,11 +57,11 @@ export const initialState: State = {
   sectionImages: [],
   sectionData: [],
   prompt: "",
-  additionalInfo: "",
   loading: {
     venues: false,
     sections: false,
     images: false,
+    uploadImage: false,
     data: false,
     prompt: false,
     content: false,
@@ -116,45 +116,19 @@ export const reducer = (state: State, action: Action): State => {
           ),
         })),
       };
-    case "UPDATE_DESCRIPTION":
+    case "UPDATE_SECTION_DATA":
+      const key = action.payload?.key ?? "description";
       return {
         ...state,
-        sectionData: state.sectionData.map((area) => ({
-          ...area,
-          description: action.payload,
-        })),
+        sectionData: [
+          {
+            ...state.sectionData[0],
+            [key]: action.payload?.value,
+          },
+        ],
       };
     case "SET_PROMPT":
       return { ...state, prompt: action.payload };
-    case "SET_ADDITIONAL_INFO":
-      return { ...state, additionalInfo: action.payload };
-
-    case "SET_SHADOW_CORRECTION": {
-      console.log("SET_SHADOW_CORRECTION", action.payload);
-      return {
-        ...state,
-        sectionData: [
-          {
-            ...state.sectionData[0],
-            shadowCorrections: action.payload,
-          },
-        ],
-      };
-    }
-
-    case "SET_HERO_IMAGE": {
-      console.log("SET_HERO_IMAGE", action.payload);
-      return {
-        ...state,
-        sectionData: [
-          {
-            ...state.sectionData[0],
-            heroImages: action.payload,
-          },
-        ],
-      };
-    }
-
     case "DELETE_IMAGE": {
       const deletedIndex = action.payload;
       const newSectionImages = state.sectionImages.filter(
@@ -181,6 +155,13 @@ export const reducer = (state: State, action: Action): State => {
           return area;
         }),
       };
+    }
+    case "UPDATE_IMAGE_STATUS": {
+      const { index, status } = action.payload;
+      const updatedImages = state.sectionImages.map((img, idx) =>
+        idx === index ? { ...img, status } : img
+      );
+      return { ...state, sectionImages: updatedImages };
     }
 
     default:

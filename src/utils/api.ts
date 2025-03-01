@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Content, ContentReq, ContentRes } from "../lib/contentType";
+import {
+  Content,
+  ContentReq,
+  ContentRes,
+  SaveContentReq,
+  SaveContentRes,
+} from "../lib/contentType";
 import { PromptDataRes } from "../lib/promptType";
 import {
   Area,
@@ -11,11 +17,13 @@ import {
   SectionImage,
   SectionImageReq,
   SectionImageRes,
+  UploadImageReq,
+  UploadImageRes,
 } from "../lib/sectionImageType";
 import { Section, SectionReq, SectionRes } from "../lib/sectionType";
 import { Venue, VenuesRes } from "../lib/venueType";
 import axios from "./axios";
-import { compressImage } from "./imageProcess";
+import { compressImage } from "./image";
 import url from "./url";
 
 export const getVenues = async (): Promise<Venue[]> => {
@@ -86,7 +94,7 @@ export const getSectionImages = async (
 export const getSectionData = async (
   params: SectionDataReq,
   signal: AbortSignal | undefined
-): Promise<SectionData["areas"]> => {
+): Promise<Area[]> => {
   try {
     const { data } = await axios.get<SectionDataRes>(url.sectionData, {
       params,
@@ -128,20 +136,38 @@ export const getPrompts = async (
   }
 };
 
-export const generateContent = async ({
-  params,
-  signal,
-}: {
-  params: ContentReq;
-  signal: AbortSignal | undefined;
-}): Promise<Area> => {
+export const updatePrompt = async (
+  prompt: string,
+  signal: AbortSignal | undefined
+): Promise<string> => {
+  try {
+    const { data } = await axios.post<{ message: string }>(url.updatePrompt, {
+      prompt,
+      signal,
+    });
+
+    return data.message;
+  } catch (error) {
+    console.error(
+      "Error updating Prompts:",
+      error instanceof Error ? error.message : error
+    );
+    return "";
+  }
+};
+
+export const generateContent = async (
+  { files, userPrompt }: ContentReq,
+  signal: AbortSignal | undefined
+): Promise<Area> => {
   try {
     const CONCURRENCY_LIMIT = 4;
     const queue: Promise<SectionImage>[] = [];
     const activePromises: Set<Promise<any>> = new Set();
 
-    for (const file of params.files) {
-      const originalUri = `data:${file.type};base64,${file.blob}`;
+    for (const file of files) {
+      const originalUri =
+        file?.blob == "" ? file.path : `data:${file.type};base64,${file.blob}`;
 
       const promise = compressImage(originalUri)
         .then((compressedBase64) => ({
@@ -172,14 +198,18 @@ export const generateContent = async ({
       formData.append("files", fileData as any);
     });
 
-    formData.append("userPrompt", params.userPrompt);
+    formData.append("userPrompt", userPrompt ?? "");
 
-    const { data } = await axios.post<ContentRes>(url.generateVisual, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      signal: signal,
-    });
+    const { data } = await axios.post<ContentRes>(
+      url.generateVisual,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        signal: signal,
+      }
+    );
 
     const content = JSON.parse(data.description) as Content;
 
@@ -190,6 +220,52 @@ export const generateContent = async ({
       smells: content.smells.map((item) => ({ value: item })),
       sounds: content.sounds.map((item) => ({ value: item })),
     };
+  } catch (error) {
+    console.error("Upload error:", error);
+    throw error;
+  }
+};
+
+export const uploadImages = async (
+  { image, completedForm, sectionName, venueName }: UploadImageReq,
+  signal: AbortSignal | undefined
+): Promise<UploadImageRes> => {
+  try {
+    const formData = new FormData();
+
+    formData.append("image", image as any);
+    formData.append("sectionName", sectionName);
+    formData.append("venueName", venueName);
+    formData.append("completedForm", JSON.stringify(completedForm));
+
+    const { data } = await axios.post<UploadImageRes>(
+      url.uploadImage,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        signal: signal,
+      }
+    );
+
+    return data;
+  } catch (error) {
+    console.error("Upload error:", error);
+    throw error;
+  }
+};
+
+export const saveContent = async (
+  params: SaveContentReq,
+  signal: AbortSignal | undefined
+): Promise<string> => {
+  try {
+    const { data } = await axios.post<SaveContentRes>(url.upload, params, {
+      signal: signal,
+    });
+
+    return data.message;
   } catch (error) {
     console.error("Upload error:", error);
     throw error;

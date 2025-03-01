@@ -1,3 +1,4 @@
+import { Area, SectionData } from "./sectionDataType";
 import { SectionImage } from "./sectionImageType";
 
 interface Content {
@@ -14,7 +15,19 @@ interface ContentRes {
 
 interface ContentReq {
   files: SectionImage[];
-  userPrompt: string;
+  userPrompt?: string;
 }
 
-export type { Content, ContentReq, ContentRes };
+interface SaveContentReq {
+  venueName: string;
+  sectionName: string;
+  promptInput: string;
+  sensoryData: string | Area;
+  completedForm: string | SectionData;
+}
+interface SaveContentRes {
+  message: string;
+  openAIResponses?: any;
+}
+
+export type { Content, ContentReq, ContentRes, SaveContentReq, SaveContentRes };
