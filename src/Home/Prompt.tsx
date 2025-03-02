@@ -1,3 +1,6 @@
+import Button from "@components/Button";
+import Icon from "@components/Icon";
+import colors from "@utils/colors";
 import { memo, useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,9 +11,6 @@ import {
   ToastAndroid,
   View,
 } from "react-native";
-import Button from "../components/Button";
-import { Icon } from "../components/Icon";
-import colors from "../utils/colors";
 
 const Prompt = ({
   data,

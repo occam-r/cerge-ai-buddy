@@ -1,3 +1,6 @@
+import Icon from "@components/Icon";
+import { ProcessMap } from "@lib/AppType";
+import colors from "@utils/colors";
 import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -23,9 +26,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { Status } from "../../lib/sectionImageType";
-import colors from "../../utils/colors";
-import { Icon } from "../Icon";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DROPDOWN_MAX_HEIGHT = SCREEN_HEIGHT * 0.4;
@@ -34,7 +34,7 @@ interface DropdownItem {
   label: string;
   value: string;
   isNew?: boolean;
-  status?: Status;
+  status?: ProcessMap;
 }
 
 type Props = {
@@ -88,7 +88,7 @@ const DropdownMenu = React.memo(
           label: searchText,
           value: searchText.toLowerCase().replace(/\s+/g, "-"),
           isNew: true,
-          status: "pending" as Status,
+          status: "incomplete" as ProcessMap,
         };
         const updatedChips = [...initialItem, newItem];
         onChange?.(updatedChips);
@@ -219,9 +219,9 @@ const DropdownMenu = React.memo(
                         {
                           backgroundColor:
                             colors[
-                              item.status ?? isExactMatch
+                              isExactMatch
                                 ? "primary"
-                                : "background"
+                                : item.status ?? "background"
                             ],
                         },
                       ]}

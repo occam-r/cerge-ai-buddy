@@ -56,8 +56,8 @@ export const writeCache = async <T>(
 
 // Helper functions for update cache
 export const handleCacheUpdate = async <T>(
-  newItems: T[],
-  offlineCachePath: string
+  offlineCachePath: string,
+  newItems: T[]
 ) => {
   try {
     // Read existing offline cache

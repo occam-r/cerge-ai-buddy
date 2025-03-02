@@ -31,4 +31,4 @@ function IconCompo({
 
   return <Component {...other} name={name} size={size} color={color} />;
 }
-export const Icon = memo(IconCompo);
+export default memo(IconCompo);

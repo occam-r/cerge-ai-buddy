@@ -1,3 +1,6 @@
+import { SectionImage, Status } from "@lib/sectionImageType";
+import colors from "@utils/colors";
+import { COLUMN_GAP, IMAGE_HEIGHT } from "@utils/constant";
 import { memo, useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
@@ -8,14 +11,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { SectionImage, Status } from "../lib/sectionImageType";
-import colors from "../utils/colors";
-import { Icon } from "../components/Icon";
 
-const IMAGE_HEIGHT = 200;
-const COLUMN_GAP = 12;
-
-export const statusIconMap: Record<Status, string> = {
+const statusIconMap: Record<Status, string> = {
   pending: "🕒",
   uploading: "⬆️",
   success: "✅",

@@ -1,12 +1,12 @@
+import colors from "@utils/colors";
 import React, { memo, useCallback } from "react";
 import {
+  ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
-  Platform,
-  ActivityIndicator,
 } from "react-native";
-import colors from "../../utils/colors";
 
 const Button = ({
   onPress,
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   disabledButton: {
-    backgroundColor: colors.primary + "88",
+    opacity: 0.5
   },
   updateButtonText: {
     color: colors.background,

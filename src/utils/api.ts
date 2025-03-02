@@ -5,26 +5,26 @@ import {
   ContentRes,
   SaveContentReq,
   SaveContentRes,
-} from "../lib/contentType";
-import { PromptDataRes } from "../lib/promptType";
+} from "@lib/contentType";
+import { PromptDataRes } from "@lib/promptType";
 import {
   Area,
   SectionData,
   SectionDataReq,
   SectionDataRes,
-} from "../lib/sectionDataType";
+} from "@lib/sectionDataType";
 import {
   SectionImage,
   SectionImageReq,
   SectionImageRes,
   UploadImageReq,
   UploadImageRes,
-} from "../lib/sectionImageType";
-import { Section, SectionReq, SectionRes } from "../lib/sectionType";
-import { Venue, VenuesRes } from "../lib/venueType";
-import axios from "./axios";
+} from "@lib/sectionImageType";
+import { Section, SectionReq, SectionRes } from "@lib/sectionType";
+import { Venue, VenuesRes } from "@lib/venueType";
 import { compressImage } from "./image";
 import url from "./url";
+import axios from "./axios";
 
 export const getVenues = async (): Promise<Venue[]> => {
   try {

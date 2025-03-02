@@ -1,10 +1,10 @@
-import { Status } from "./sectionImageType";
+import { ProcessMap } from "./AppType";
 
 interface Section {
   value: string;
   label: string;
   isNew?: boolean;
-  status?: Status;
+  status?: ProcessMap;
 }
 
 interface SectionRes {
@@ -17,4 +17,3 @@ interface SectionReq {
 }
 
 export type { Section, SectionReq, SectionRes };
-

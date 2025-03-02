@@ -1,12 +1,12 @@
+import Footer from "@components/Footer";
 import NetInfo from "@react-native-community/netinfo";
+import Home from "@screens/index";
+import { initializeCacheDir } from "@utils/cache";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, BackHandler, StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import Footer from "./components/Footer";
-import Home from "./Home";
-import { initializeCacheDir } from "./utils/cache";
 
 const App = () => {
   const [isOnline, setIsOnline] = useState(true);

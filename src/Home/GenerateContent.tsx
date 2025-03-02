@@ -1,7 +1,7 @@
+import Button from "@components/Button";
+import colors from "@utils/colors";
 import { memo } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
-import Button from "../components/Button";
-import colors from "../utils/colors";
 
 const GenerateContent = ({
   isVisible,

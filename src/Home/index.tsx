@@ -1,3 +1,30 @@
+import Button from "@components/Button";
+import DropdownMenu from "@components/DropdownMenu";
+import InputWithChip from "@components/InputWithChip";
+import { ProcessMap } from "@lib/AppType";
+import { Area, SensoryType } from "@lib/sectionDataType";
+import { SectionImage } from "@lib/sectionImageType";
+import { Section } from "@lib/sectionType";
+import { Venue } from "@lib/venueType";
+import { homeReducer, initialHomeState } from "@reducer/Home";
+import {
+  generateContent,
+  getPrompts,
+  getSection,
+  getSectionData,
+  getSectionImages,
+  getVenues,
+  saveContent,
+  updatePrompt,
+  uploadImages,
+} from "@utils/api";
+import {
+  CACHE_PATHS,
+  handleCacheUpdate,
+  readCache,
+  writeCache,
+} from "@utils/cache";
+import { BATCH_SIZE, MAX_RETRIES, RETRY_DELAY_MS } from "@utils/constant";
 import debounce from "lodash/debounce";
 import React, {
   useCallback,
@@ -9,44 +36,14 @@ import React, {
 } from "react";
 import { StyleSheet, ToastAndroid } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
-import Button from "../components/Button";
-import InputWithChip from "../components/InputWithChip";
-import { Area, SensoryType } from "../lib/sectionDataType";
-import { SectionImage, Status } from "../lib/sectionImageType";
-import { Section } from "../lib/sectionType";
-import { Venue } from "../lib/venueType";
-import { initialState, reducer } from "../reducer";
-
-import DropdownMenu from "../components/DropdownMenu";
-import {
-  generateContent,
-  getPrompts,
-  getSection,
-  getSectionData,
-  getSectionImages,
-  getVenues,
-  saveContent,
-  updatePrompt,
-  uploadImages,
-} from "../utils/api";
-import {
-  CACHE_PATHS,
-  handleCacheUpdate,
-  readCache,
-  writeCache,
-} from "../utils/cache";
 import Content from "./Content";
 import GenerateContent from "./GenerateContent";
 import ImageList from "./ImageList";
 import ModificationModal from "./ModificationModal";
 import Prompt from "./Prompt";
 
-const BATCH_SIZE = 3;
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
-
 const Home = ({ isOnline }: { isOnline: boolean }) => {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(homeReducer, initialHomeState);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const abortControllers = useRef<AbortController[]>([]);
   const isMounted = useRef(true);
@@ -123,9 +120,13 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
               dispatch({ type: "SET_VENUES", payload: mergedData as Venue[] });
               break;
             case "sections":
+              const sectionMap = new Map<string, Section>();
+              mergedData.forEach((section) =>
+                sectionMap.set(section.value, section)
+              );
               dispatch({
                 type: "SET_SECTIONS",
-                payload: mergedData as Section[],
+                payload: Array.from(sectionMap.values()) as Section[],
               });
               break;
             case "images":
@@ -170,41 +171,41 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
   }, [fetchData]);
 
   const fetchSection = useCallback(
-    (id: string, status?: Status) => {
+    (id: string, status?: ProcessMap) => {
       return fetchData<Section[]>({
         onlineFetch: (signal) => getSection({ id }, signal),
         cachePath: CACHE_PATHS.SECTIONS(id),
         offlineCachePath: CACHE_PATHS.OFFLINE_SECTIONS(id),
         type: "sections",
-        shouldFetchOnline: status !== "pending",
+        shouldFetchOnline: status !== "incomplete",
       });
     },
     [fetchData]
   );
 
   const fetchSectionImage = useCallback(
-    (venueId: string, sectionLabel: string, status?: Status) => {
+    (venueId: string, sectionLabel: string, status?: ProcessMap) => {
       return fetchData<SectionImage[]>({
         onlineFetch: (signal) =>
           getSectionImages({ venueId, sectionName: sectionLabel }, signal),
         cachePath: CACHE_PATHS.IMAGES(venueId, sectionLabel),
         offlineCachePath: CACHE_PATHS.OFFLINE_IMAGES(venueId, sectionLabel),
         type: "images",
-        shouldFetchOnline: status !== "pending",
+        shouldFetchOnline: status !== "incomplete",
       });
     },
     [fetchData]
   );
 
   const fetchSectionData = useCallback(
-    (venueId: string, sectionLabel: string, status?: Status) => {
+    (venueId: string, sectionLabel: string, status?: ProcessMap) => {
       return fetchData<Area[]>({
         onlineFetch: (signal) =>
           getSectionData({ venueId, sectionName: sectionLabel }, signal),
         cachePath: CACHE_PATHS.DATA(venueId, sectionLabel),
         offlineCachePath: CACHE_PATHS.OFFLINE_DATA(venueId, sectionLabel),
         type: "data",
-        shouldFetchOnline: status !== "pending",
+        shouldFetchOnline: status !== "incomplete",
       });
     },
     [fetchData]
@@ -255,11 +256,11 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           value: `new-${Date.now()}`,
           label: "1",
           isNew: true,
-          status: "pending" as Status,
+          status: "incomplete",
         };
         dispatch({ type: "SET_SECTIONS", payload: [newSection] });
         dispatch({ type: "SET_SELECTED_SECTION", payload: newSection });
-        handleCacheUpdate([newVenue], CACHE_PATHS.OFFLINE_VENUES);
+        handleCacheUpdate(CACHE_PATHS.OFFLINE_VENUES, [newVenue]);
       }
     },
     [fetchSection, isOnline]
@@ -460,7 +461,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           try {
             const fileData = {
               uri: path,
-              name: `${Date.now()}_${index}.jpg`,
+              name: `${index}.jpg`,
               type: type,
             };
 
@@ -681,7 +682,6 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         setSelectedItem={selectVenueHandler}
       />
       <InputWithChip
-        isOnline={isOnline}
         initialChips={sections}
         loading={loading.sections}
         onChange={onSectionChange}

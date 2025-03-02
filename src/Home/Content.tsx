@@ -1,3 +1,7 @@
+import Icon from "@components/Icon";
+import { Area, SensoryType } from "@lib/sectionDataType";
+import colors from "@utils/colors";
+import icons from "assets/icons";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -8,10 +12,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import icons from "../../assets/icons";
-import { Icon } from "../components/Icon";
-import { Area, SensoryType } from "../lib/sectionDataType";
-import colors from "../utils/colors";
 
 const Content = ({
   data,

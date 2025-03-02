@@ -1,3 +1,10 @@
+import Icon from "@components/Icon";
+import { SectionImage, Status } from "@lib/sectionImageType";
+import {
+  modificationInitialState,
+  modificationReducer,
+} from "@reducer/Modification";
+import colors from "@utils/colors";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import React, {
@@ -25,13 +32,6 @@ import Sortable, {
   OrderChangeParams,
   SortableGridRenderItem,
 } from "react-native-sortables";
-import { Icon } from "../components/Icon";
-import { SectionImage, Status } from "../lib/sectionImageType";
-import {
-  modificationInitialState,
-  modificationReducer,
-} from "../reducer/Modification";
-import colors from "../utils/colors";
 
 const CARD_HEIGHT = 200;
 const COLUMNS = 2;

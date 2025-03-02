@@ -1,7 +1,7 @@
-import { Area, SensoryType } from "../lib/sectionDataType";
-import { SectionImage, Status } from "../lib/sectionImageType";
-import { Section } from "../lib/sectionType";
-import { Venue } from "../lib/venueType";
+import { Area, SensoryType } from "@lib/sectionDataType";
+import { SectionImage, Status } from "@lib/sectionImageType";
+import { Section } from "@lib/sectionType";
+import { Venue } from "@lib/venueType";
 
 type State = {
   venue: Venue | null;
@@ -50,7 +50,7 @@ type Action =
   | { type: "DELETE_IMAGE"; payload: number }
   | { type: "UPDATE_IMAGE_STATUS"; payload: { index: number; status: Status } };
 
-export const initialState: State = {
+export const initialHomeState: State = {
   venue: null,
   section: null,
   venues: [],
@@ -70,7 +70,7 @@ export const initialState: State = {
   },
 };
 
-export const reducer = (state: State, action: Action): State => {
+export const homeReducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "SET_VENUES":
       return { ...state, venues: action.payload };

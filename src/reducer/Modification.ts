@@ -1,5 +1,5 @@
+import { SectionImage } from "@lib/sectionImageType";
 import { OrderChangeParams } from "react-native-sortables";
-import { SectionImage } from "../lib/sectionImageType";
 
 export type shadowHeroType = Record<string, boolean>;
 

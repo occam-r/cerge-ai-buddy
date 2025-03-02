@@ -1,10 +1,10 @@
-import { Status } from "./sectionImageType";
+import { ProcessMap } from "./AppType";
 
 interface Venue {
   value: string;
   label: string;
   isNew?: boolean;
-  status?: Status;
+  status?: ProcessMap;
 }
 
 interface VenuesRes {

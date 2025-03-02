@@ -1,3 +1,5 @@
+import { ProcessMap } from "@lib/AppType";
+import colors from "@utils/colors";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,18 +15,16 @@ import Animated, {
   FadeOut,
   LinearTransition,
 } from "react-native-reanimated";
-import { Status } from "../../lib/sectionImageType";
-import colors from "../../utils/colors";
 
 export interface ChipType {
   value: string;
   label: string;
   isNew?: boolean;
-  status?: Status;
+  status?: ProcessMap;
 }
 
 interface InputWithChipProps {
-  status?: Status;
+  status?: ProcessMap;
   initialChips?: ChipType[];
   onChange?: (chips: ChipType[]) => void;
   loading?: boolean;
@@ -60,7 +60,7 @@ const InputWithChip = React.memo(
         value: `new-${Date.now()}`,
         label: `${newChipNumber}`,
         isNew: true,
-        status: "pending",
+        status: "incomplete",
       };
       const updatedChips = [...initialChips, newChip];
       onChange?.(updatedChips);
