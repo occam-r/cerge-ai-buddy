@@ -23,20 +23,21 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { Status } from "../../lib/sectionImageType";
 import colors from "../../utils/colors";
 import { Icon } from "../Icon";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DROPDOWN_MAX_HEIGHT = SCREEN_HEIGHT * 0.4;
 
-export interface DropdownItem {
+interface DropdownItem {
   label: string;
   value: string;
   isNew?: boolean;
+  status?: Status;
 }
 
 type Props = {
-  isOnline?: boolean;
   initialItem?: DropdownItem[];
   loading?: boolean;
   onChange?: (items: DropdownItem[]) => void;
@@ -49,7 +50,6 @@ const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const DropdownMenu = React.memo(
   ({
-    isOnline,
     initialItem = [],
     loading,
     onChange,
@@ -88,7 +88,7 @@ const DropdownMenu = React.memo(
           label: searchText,
           value: searchText.toLowerCase().replace(/\s+/g, "-"),
           isNew: true,
-          isOnline: isOnline,
+          status: "pending" as Status,
         };
         const updatedChips = [...initialItem, newItem];
         onChange?.(updatedChips);
@@ -190,59 +190,60 @@ const DropdownMenu = React.memo(
           <View>
             {/* Dropdown List */}
             <Animated.View style={[styles.dropdown, dropdownAnimatedStyle]}>
-              {initialItem?.length === 0 ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color={colors.primary} />
-                </View>
-              ) : (
-                <ScrollView
-                  style={styles.scrollView}
-                  keyboardShouldPersistTaps="always"
-                  keyboardDismissMode="on-drag"
-                >
-                  {!hasExactMatch && searchText.trim() && (
+              <ScrollView
+                style={styles.scrollView}
+                keyboardShouldPersistTaps="always"
+                keyboardDismissMode="on-drag"
+              >
+                {!hasExactMatch && searchText.trim() && (
+                  <TouchableOpacity
+                    style={styles.item}
+                    onPress={() => {
+                      addNewItem();
+                      closeDropdown();
+                    }}
+                  >
+                    <Text style={styles.addText}>
+                      New Venue: "{searchText}"
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {initialItem?.map((item) => {
+                  const isExactMatch =
+                    item.label.toLowerCase() === searchText.toLowerCase();
+                  return (
                     <TouchableOpacity
-                      style={styles.item}
+                      key={item.value}
+                      style={[
+                        styles.item,
+                        {
+                          backgroundColor:
+                            colors[
+                              item.status ?? isExactMatch
+                                ? "primary"
+                                : "background"
+                            ],
+                        },
+                      ]}
                       onPress={() => {
-                        addNewItem();
+                        if (selectedItem?.value === item.value) {
+                          closeDropdown();
+                          return;
+                        }
+                        setSelectedItem(item);
+                        setSearchText(item.label);
                         closeDropdown();
                       }}
                     >
-                      <Text style={styles.addText}>
-                        New Venue: "{searchText}"
+                      <Text style={styles.itemText}>
+                        {!isExactMatch
+                          ? highlightText(item.label, searchText)
+                          : item.label}
                       </Text>
                     </TouchableOpacity>
-                  )}
-                  {initialItem?.map((item) => {
-                    const isExactMatch =
-                      item.label.toLowerCase() === searchText.toLowerCase();
-                    return (
-                      <TouchableOpacity
-                        key={item.value}
-                        style={[
-                          styles.item,
-                          isExactMatch && styles.exactMatchItem,
-                        ]}
-                        onPress={() => {
-                          if (selectedItem?.value === item.value) {
-                            closeDropdown();
-                            return;
-                          }
-                          setSelectedItem(item);
-                          setSearchText(item.label);
-                          closeDropdown();
-                        }}
-                      >
-                        <Text style={styles.itemText}>
-                          {!isExactMatch
-                            ? highlightText(item.label, searchText)
-                            : item.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              )}
+                  );
+                })}
+              </ScrollView>
             </Animated.View>
           </View>
         </GestureDetector>
@@ -289,7 +290,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "100%",
     width: "100%",
-    backgroundColor: "white",
+    backgroundColor: colors.background,
     borderRadius: 8,
     marginTop: 4,
     elevation: 4,
@@ -310,9 +311,6 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 16,
     color: "#333",
-  },
-  exactMatchItem: {
-    backgroundColor: "#e6f4ea",
   },
   addText: {
     fontSize: 16,

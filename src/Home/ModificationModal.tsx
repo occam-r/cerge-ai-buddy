@@ -8,7 +8,6 @@ import React, {
   useReducer,
 } from "react";
 import {
-  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -44,14 +43,12 @@ const ActionButton = memo(
     style,
     textStyle,
     icon,
-    loading,
   }: {
     label: string;
     onPress: () => void;
     style: any;
     textStyle: any;
     icon?: string;
-    loading?: boolean;
   }) => (
     <Pressable
       onPress={onPress}
@@ -59,11 +56,7 @@ const ActionButton = memo(
       android_ripple={{ color: "#00000010" }}
     >
       {icon && <Icon type="Feather" name={icon} size={24} />}
-      {loading ? (
-        <ActivityIndicator color={"white"} />
-      ) : (
-        <Text style={textStyle}>{label}</Text>
-      )}
+      <Text style={textStyle}>{label}</Text>
     </Pressable>
   )
 );
@@ -121,7 +114,14 @@ const GridItem = memo(
     );
 
     return (
-      <View style={styles.card}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors[item.status ?? "success"],
+          },
+        ]}
+      >
         <Image
           style={styles.image}
           source={imageSource}
@@ -273,8 +273,6 @@ const ModificationModal = ({
   const handleImagePick = useCallback(
     async (type: "gallery" | "camera") => {
       try {
-        dispatch({ type: "SET_LOADING", payload: { images: true } });
-
         const picker =
           type === "gallery"
             ? ImagePicker.launchImageLibraryAsync
@@ -304,7 +302,7 @@ const ModificationModal = ({
           id: `${timestamp}-${index}`,
           path: asset.uri,
           blob: asset.base64 ?? "",
-          status: 'pending' as Status
+          status: "pending" as Status,
         }));
 
         if (type === "camera" && result.assets.length > 0) {
@@ -337,8 +335,6 @@ const ModificationModal = ({
       } catch (error) {
         console.error("Error picking images:", error);
         ToastAndroid.show("Failed to process images", ToastAndroid.SHORT);
-      } finally {
-        dispatch({ type: "SET_LOADING", payload: { images: false } });
       }
     },
     [state]
@@ -400,7 +396,6 @@ const ModificationModal = ({
                 onPress={handleOnSaved}
                 style={styles.saveButton}
                 textStyle={styles.saveText}
-                loading={state.loading.images}
               />
             </View>
           </View>
@@ -506,7 +501,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     height: 50,
     flexDirection: "row",
-    borderColor: colors.primary
+    borderColor: colors.primary,
   },
   text: {
     fontSize: 16,

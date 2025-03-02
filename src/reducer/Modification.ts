@@ -8,9 +8,6 @@ type State = {
   shadowCorrections: shadowHeroType;
   heroImages: shadowHeroType;
   orderChanged: OrderChangeParams | undefined;
-  loading: {
-    images: boolean;
-  };
 };
 
 type Action =
@@ -25,17 +22,13 @@ type Action =
   | { type: "TOGGLE_SHADOW_CORRECTION"; payload: string }
   | { type: "TOGGLE_HERO_IMAGE"; payload: string }
   | { type: "DELETE_IMAGE"; payload: string }
-  | { type: "UPDATE_ORDER"; payload: OrderChangeParams }
-  | { type: "SET_LOADING"; payload: Partial<State["loading"]> };
+  | { type: "UPDATE_ORDER"; payload: OrderChangeParams };
 
 export const modificationInitialState: State = {
   sectionImages: [],
   shadowCorrections: {},
   heroImages: {},
   orderChanged: undefined,
-  loading: {
-    images: false,
-  },
 };
 
 export const modificationReducer = (state: State, action: Action): State => {
@@ -99,9 +92,6 @@ export const modificationReducer = (state: State, action: Action): State => {
         ...state,
         orderChanged: action.payload,
       };
-
-    case "SET_LOADING":
-      return { ...state, loading: { ...state.loading, ...action.payload } };
 
     default:
       return state;

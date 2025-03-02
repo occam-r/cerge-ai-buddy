@@ -1,8 +1,10 @@
+import { Status } from "./sectionImageType";
+
 interface Section {
   value: string;
   label: string;
   isNew?: boolean;
-  isOnline?: boolean;
+  status?: Status;
 }
 
 interface SectionRes {
@@ -14,4 +16,5 @@ interface SectionReq {
   id: string;
 }
 
-export type { Section, SectionRes, SectionReq };
+export type { Section, SectionReq, SectionRes };
+

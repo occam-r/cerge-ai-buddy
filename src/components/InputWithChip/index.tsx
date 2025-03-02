@@ -13,17 +13,18 @@ import Animated, {
   FadeOut,
   LinearTransition,
 } from "react-native-reanimated";
+import { Status } from "../../lib/sectionImageType";
 import colors from "../../utils/colors";
 
 export interface ChipType {
   value: string;
   label: string;
   isNew?: boolean;
-  isOnline?: boolean;
+  status?: Status;
 }
 
 interface InputWithChipProps {
-  isOnline?: boolean;
+  status?: Status;
   initialChips?: ChipType[];
   onChange?: (chips: ChipType[]) => void;
   loading?: boolean;
@@ -39,7 +40,6 @@ const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 const InputWithChip = React.memo(
   ({
-    isOnline,
     initialChips = [],
     onChange,
     loading = false,
@@ -60,7 +60,7 @@ const InputWithChip = React.memo(
         value: `new-${Date.now()}`,
         label: `${newChipNumber}`,
         isNew: true,
-        isOnline: isOnline,
+        status: "pending",
       };
       const updatedChips = [...initialChips, newChip];
       onChange?.(updatedChips);
@@ -104,7 +104,13 @@ const InputWithChip = React.memo(
             entering={FadeIn}
             exiting={FadeOut}
             layout={LinearTransition.springify()}
-            style={[styles.chip, isSelected && styles.selectedChip]}
+            style={[
+              styles.chip,
+              {
+                backgroundColor:
+                  colors[isSelected ? "primary" : item.status ?? "border"],
+              },
+            ]}
             onPress={() => handleSelectChip(item)}
             accessibilityLabel={
               isSelected
@@ -180,7 +186,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#f0f0f0",
     maxWidth: MAX_CHIP_WIDTH,
     marginVertical: 4,
   },
@@ -199,7 +204,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: colors.border,
     justifyContent: "center",
     alignItems: "center",
   },

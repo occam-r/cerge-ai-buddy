@@ -1,3 +1,4 @@
+import debounce from "lodash/debounce";
 import React, {
   useCallback,
   useEffect,
@@ -9,13 +10,14 @@ import React, {
 import { StyleSheet, ToastAndroid } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import Button from "../components/Button";
-import DropdownMenu from "../components/DropdownMenu";
 import InputWithChip from "../components/InputWithChip";
 import { Area, SensoryType } from "../lib/sectionDataType";
-import { SectionImage } from "../lib/sectionImageType";
+import { SectionImage, Status } from "../lib/sectionImageType";
 import { Section } from "../lib/sectionType";
 import { Venue } from "../lib/venueType";
 import { initialState, reducer } from "../reducer";
+
+import DropdownMenu from "../components/DropdownMenu";
 import {
   generateContent,
   getPrompts,
@@ -27,7 +29,12 @@ import {
   updatePrompt,
   uploadImages,
 } from "../utils/api";
-import { CACHE_PATHS, readCache, writeCache } from "../utils/cache";
+import {
+  CACHE_PATHS,
+  handleCacheUpdate,
+  readCache,
+  writeCache,
+} from "../utils/cache";
 import Content from "./Content";
 import GenerateContent from "./GenerateContent";
 import ImageList from "./ImageList";
@@ -69,11 +76,13 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       cachePath,
       offlineCachePath,
       type,
+      shouldFetchOnline,
     }: {
       onlineFetch: (signal?: AbortSignal) => Promise<T>;
       cachePath: string;
       offlineCachePath?: string;
       type: "venues" | "sections" | "images" | "data";
+      shouldFetchOnline?: boolean;
     }) => {
       if (!isMounted.current) return;
       dispatch({ type: "SET_LOADING", payload: { [type]: true } });
@@ -83,7 +92,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
 
       try {
         let serverData: T = [] as T;
-        if (isOnline) {
+        if (shouldFetchOnline) {
           serverData = await onlineFetch(controller.signal);
           await writeCache(cachePath, serverData);
         } else {
@@ -104,7 +113,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
             ...(Array.isArray(offlineData)
               ? (offlineData as any[]).map((item: any) => ({
                   ...item,
-                  isOnline: false,
+                  isNew: false,
                 }))
               : []),
           ];
@@ -147,7 +156,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         }
       }
     },
-    [isOnline]
+    []
   );
 
   const fetchVenues = useCallback(() => {
@@ -156,42 +165,46 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       cachePath: CACHE_PATHS.VENUES,
       offlineCachePath: CACHE_PATHS.OFFLINE_VENUES,
       type: "venues",
+      shouldFetchOnline: isOnline,
     });
   }, [fetchData]);
 
   const fetchSection = useCallback(
-    (id: string) => {
+    (id: string, status?: Status) => {
       return fetchData<Section[]>({
         onlineFetch: (signal) => getSection({ id }, signal),
         cachePath: CACHE_PATHS.SECTIONS(id),
         offlineCachePath: CACHE_PATHS.OFFLINE_SECTIONS(id),
         type: "sections",
+        shouldFetchOnline: status !== "pending",
       });
     },
     [fetchData]
   );
 
   const fetchSectionImage = useCallback(
-    (venueId: string, sectionLabel: string) => {
+    (venueId: string, sectionLabel: string, status?: Status) => {
       return fetchData<SectionImage[]>({
         onlineFetch: (signal) =>
           getSectionImages({ venueId, sectionName: sectionLabel }, signal),
         cachePath: CACHE_PATHS.IMAGES(venueId, sectionLabel),
         offlineCachePath: CACHE_PATHS.OFFLINE_IMAGES(venueId, sectionLabel),
         type: "images",
+        shouldFetchOnline: status !== "pending",
       });
     },
     [fetchData]
   );
 
   const fetchSectionData = useCallback(
-    (venueId: string, sectionLabel: string) => {
+    (venueId: string, sectionLabel: string, status?: Status) => {
       return fetchData<Area[]>({
         onlineFetch: (signal) =>
           getSectionData({ venueId, sectionName: sectionLabel }, signal),
         cachePath: CACHE_PATHS.DATA(venueId, sectionLabel),
         offlineCachePath: CACHE_PATHS.OFFLINE_DATA(venueId, sectionLabel),
         type: "data",
+        shouldFetchOnline: status !== "pending",
       });
     },
     [fetchData]
@@ -236,16 +249,17 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       dispatch({ type: "SET_SECTION_DATA", payload: [] });
 
       if (!newVenue?.isNew && newVenue?.value) {
-        fetchSection(newVenue.value);
+        fetchSection(newVenue.value, newVenue.status);
       } else if (newVenue?.isNew) {
         const newSection: Section = {
           value: `new-${Date.now()}`,
           label: "1",
           isNew: true,
-          isOnline: isOnline,
+          status: "pending" as Status,
         };
         dispatch({ type: "SET_SECTIONS", payload: [newSection] });
         dispatch({ type: "SET_SELECTED_SECTION", payload: newSection });
+        handleCacheUpdate([newVenue], CACHE_PATHS.OFFLINE_VENUES);
       }
     },
     [fetchSection, isOnline]
@@ -256,26 +270,33 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       dispatch({ type: "SET_SELECTED_SECTION", payload: newSection });
       dispatch({ type: "SET_SECTION_DATA", payload: [] });
       dispatch({ type: "SET_SECTION_IMAGES", payload: [] });
-      if (!newSection?.isNew && venue?.value && newSection?.label) {
+
+      if (venue?.value && newSection?.label && newSection.label.length >= 1) {
         const venueId = venue.value;
         const sectionLabel = newSection.label;
 
         Promise.all([
-          fetchSectionImage(venueId, sectionLabel),
-          fetchSectionData(venueId, sectionLabel),
+          fetchSectionImage(venueId, sectionLabel, newSection?.status),
+          fetchSectionData(venueId, sectionLabel, newSection?.status),
         ]).catch(console.error);
       }
     },
-    [venue, fetchSectionImage, fetchSectionData]
+    [venue, fetchSectionImage, fetchSectionData, isOnline]
   );
 
   const onVenueChange = useCallback((items: Venue[]) => {
     dispatch({ type: "SET_VENUES", payload: items });
   }, []);
 
-  const onSectionChange = useCallback((sections: Section[]) => {
-    dispatch({ type: "SET_SECTIONS", payload: sections });
-  }, []);
+  const onSectionChange = useCallback(
+    debounce((sections: Section[]) => {
+      dispatch({ type: "SET_SECTIONS", payload: sections });
+      if (venue?.value) {
+        writeCache(CACHE_PATHS.OFFLINE_SECTIONS(venue?.value), sections);
+      }
+    }, 500),
+    [venue]
+  );
 
   const handleModalToggle = useCallback(
     () => setIsModalOpen((prev) => !prev),
@@ -509,25 +530,49 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
   );
 
   const handleSaveImage = useCallback(
-    (images: SectionImage[], shadow: boolean[], hero: boolean[]) => {
-      dispatch({ type: "SET_SECTION_IMAGES", payload: images });
-      dispatch({
-        type: "UPDATE_SECTION_DATA",
-        payload: {
-          key: "shadowCorrections",
-          value: shadow,
-        },
-      });
-      dispatch({
-        type: "UPDATE_SECTION_DATA",
-        payload: {
-          key: "heroImages",
-          value: hero,
-        },
-      });
-      ToastAndroid.show("Images saved successfully", ToastAndroid.SHORT);
+    async (images: SectionImage[], shadow: boolean[], hero: boolean[]) => {
+      try {
+        dispatch({ type: "SET_LOADING", payload: { saveImage: true } });
+        const uniqueImages = images.filter(
+          (newImage) =>
+            !sectionImages.some(
+              (existingImage) =>
+                existingImage.id === newImage.id &&
+                existingImage.status !== "pending"
+            )
+        );
+
+        if (venue?.value && section?.label && uniqueImages.length > 0) {
+          await writeCache(
+            CACHE_PATHS.OFFLINE_IMAGES(venue?.value, section?.label),
+            uniqueImages
+          );
+        }
+
+        dispatch({ type: "SET_SECTION_IMAGES", payload: images });
+        dispatch({
+          type: "UPDATE_SECTION_DATA",
+          payload: {
+            key: "shadowCorrections",
+            value: shadow,
+          },
+        });
+        dispatch({
+          type: "UPDATE_SECTION_DATA",
+          payload: {
+            key: "heroImages",
+            value: hero,
+          },
+        });
+        ToastAndroid.show("Images saved successfully", ToastAndroid.SHORT);
+      } catch (error) {
+        console.error("Error in handleSaveImage:", error);
+        ToastAndroid.show("Failed to save images", ToastAndroid.SHORT);
+      } finally {
+        dispatch({ type: "SET_LOADING", payload: { saveImage: false } });
+      }
     },
-    []
+    [sectionImages, venue, section]
   );
 
   const handleGenerateContent = useCallback(async () => {
@@ -629,7 +674,6 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       contentContainerStyle={styles.container}
     >
       <DropdownMenu
-        isOnline={isOnline}
         initialItem={venues}
         loading={loading.venues}
         onChange={onVenueChange}
@@ -648,7 +692,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       <Button
         onPress={handleModalToggle}
         title={"Add / Rearrange / Modify Images"}
-        isOnline={isOnline}
+        isLoading={loading.saveImage}
       />
       <Button
         onPress={handleUploadImages}

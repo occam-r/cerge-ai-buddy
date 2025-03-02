@@ -57,7 +57,6 @@ export const writeCache = async <T>(
 // Helper functions for update cache
 export const handleCacheUpdate = async <T>(
   newItems: T[],
-  cachePath: string,
   offlineCachePath: string
 ) => {
   try {
@@ -79,11 +78,6 @@ export const handleCacheUpdate = async <T>(
         ...uniqueNewItems,
       ]);
     }
-
-    // Update main cache
-    const existing = (await readCache<T[]>(cachePath)) || [];
-    const updatedMain = [...existing, ...uniqueNewItems];
-    await writeCache(cachePath, updatedMain);
   } catch (error) {
     console.error("Cache update failed:", error);
   }

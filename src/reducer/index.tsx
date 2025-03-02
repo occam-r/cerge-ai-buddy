@@ -16,6 +16,7 @@ type State = {
     sections: boolean;
     images: boolean;
     uploadImage: boolean;
+    saveImage: boolean;
     data: boolean;
     prompt: boolean;
     content: boolean;
@@ -62,6 +63,7 @@ export const initialState: State = {
     sections: false,
     images: false,
     uploadImage: false,
+    saveImage: false,
     data: false,
     prompt: false,
     content: false,

@@ -1,8 +1,10 @@
+import { Status } from "./sectionImageType";
+
 interface Venue {
   value: string;
   label: string;
   isNew?: boolean;
-  isOnline?: boolean;
+  status?: Status;
 }
 
 interface VenuesRes {
