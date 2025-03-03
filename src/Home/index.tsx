@@ -45,14 +45,14 @@ import Prompt from "./Prompt";
 const Home = ({ isOnline }: { isOnline: boolean }) => {
   const [state, dispatch] = useReducer(homeReducer, initialHomeState);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const abortControllers = useRef<AbortController[]>([]);
   const isMounted = useRef(true);
+  const activeRequests = useRef(new Map<string, AbortController>());
 
   useEffect(() => {
     return () => {
       isMounted.current = false;
-      abortControllers.current.forEach((controller) => controller.abort());
-      abortControllers.current = [];
+      activeRequests.current.forEach((controller) => controller.abort());
+      activeRequests.current.clear();
     };
   }, []);
 
@@ -74,35 +74,50 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       offlineCachePath,
       type,
       shouldFetchOnline,
+      requestId,
     }: {
       onlineFetch: (signal?: AbortSignal) => Promise<T>;
       cachePath: string;
-      offlineCachePath?: string;
+      offlineCachePath: string;
       type: "venues" | "sections" | "images" | "data";
-      shouldFetchOnline?: boolean;
+      shouldFetchOnline: boolean;
+      requestId: string;
     }) => {
       if (!isMounted.current) return;
+      if (activeRequests.current.has(requestId)) {
+        activeRequests.current.get(requestId)?.abort();
+      }
+
       dispatch({ type: "SET_LOADING", payload: { [type]: true } });
 
       const controller = new AbortController();
-      abortControllers.current.push(controller);
+      activeRequests.current.set(requestId, controller);
 
       try {
         let serverData: T = [] as T;
-        if (shouldFetchOnline) {
+        if (shouldFetchOnline && isOnline) {
           serverData = await onlineFetch(controller.signal);
-          await writeCache(cachePath, serverData);
+          if (controller.signal.aborted) {
+            throw new Error("AbortError");
+          }
+
+          if (isMounted.current) {
+            await writeCache(cachePath, serverData);
+          }
         } else {
           const cached = await readCache<T>(cachePath);
           serverData = cached || ([] as T);
         }
+
+        if (!isMounted.current || controller.signal.aborted) return;
 
         let offlineData: T = [] as T;
         if (offlineCachePath) {
           const offline = await readCache<T>(offlineCachePath);
           offlineData = offline || ([] as T);
         }
-        if (!isMounted.current) return;
+
+        if (!isMounted.current || controller.signal.aborted) return;
 
         if (Array.isArray(serverData) || Array.isArray(offlineData)) {
           const mergedData = [
@@ -145,19 +160,15 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         }
       } catch (error) {
         if (!isMounted.current) return;
-        if (!(error instanceof Error && error.name === "AbortError")) {
-          console.error(`Failed to fetch ${type}:`, error);
-        }
+        console.error(`Failed to fetch ${type}:`, error);
       } finally {
         if (isMounted.current) {
           dispatch({ type: "SET_LOADING", payload: { [type]: false } });
-          abortControllers.current = abortControllers.current.filter(
-            (c) => c !== controller
-          );
+          activeRequests.current.delete(requestId);
         }
       }
     },
-    []
+    [isOnline]
   );
 
   const fetchVenues = useCallback(() => {
@@ -167,17 +178,20 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       offlineCachePath: CACHE_PATHS.OFFLINE_VENUES,
       type: "venues",
       shouldFetchOnline: isOnline,
+      requestId: "venues",
     });
-  }, [fetchData]);
+  }, [fetchData, isOnline]);
 
   const fetchSection = useCallback(
     (id: string, status?: ProcessMap) => {
+      console.log("KJ 1", id, status);
       return fetchData<Section[]>({
         onlineFetch: (signal) => getSection({ id }, signal),
         cachePath: CACHE_PATHS.SECTIONS(id),
         offlineCachePath: CACHE_PATHS.OFFLINE_SECTIONS(id),
         type: "sections",
         shouldFetchOnline: status !== "incomplete",
+        requestId: `sections-${id}`,
       });
     },
     [fetchData]
@@ -192,6 +206,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         offlineCachePath: CACHE_PATHS.OFFLINE_IMAGES(venueId, sectionLabel),
         type: "images",
         shouldFetchOnline: status !== "incomplete",
+        requestId: `images-${venueId}-${sectionLabel}`,
       });
     },
     [fetchData]
@@ -206,6 +221,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         offlineCachePath: CACHE_PATHS.OFFLINE_DATA(venueId, sectionLabel),
         type: "data",
         shouldFetchOnline: status !== "incomplete",
+        requestId: `data-${venueId}-${sectionLabel}`,
       });
     },
     [fetchData]
@@ -215,7 +231,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     dispatch({ type: "SET_LOADING", payload: { prompt: true } });
 
     const controller = new AbortController();
-    abortControllers.current.push(controller);
+    activeRequests.current.set("prompt", controller);
 
     try {
       const response = await getPrompts(controller.signal);
@@ -228,12 +244,9 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         console.error(`Failed to update prompt:`, error);
       }
     } finally {
-      dispatch({ type: "SET_LOADING", payload: { prompt: false } });
       if (isMounted.current) {
-        const controllerIndex = abortControllers.current.indexOf(controller);
-        if (controllerIndex !== -1) {
-          abortControllers.current.splice(controllerIndex, 1);
-        }
+        dispatch({ type: "SET_LOADING", payload: { prompt: false } });
+        activeRequests.current.delete("prompt");
       }
     }
   }, []);
@@ -244,6 +257,16 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
 
   const selectVenueHandler = useCallback(
     (newVenue: Venue | null) => {
+      activeRequests.current.forEach((c, key) => {
+        if (
+          key.startsWith("sections-") ||
+          key.startsWith("images-") ||
+          key.startsWith("data-")
+        ) {
+          c.abort();
+        }
+      });
+
       dispatch({ type: "SET_SELECTED_VENUE", payload: newVenue });
       dispatch({ type: "SET_SELECTED_SECTION", payload: null });
       dispatch({ type: "SET_SECTION_IMAGES", payload: [] });
@@ -263,7 +286,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         handleCacheUpdate(CACHE_PATHS.OFFLINE_VENUES, [newVenue]);
       }
     },
-    [fetchSection, isOnline]
+    [fetchSection]
   );
 
   const selectSectionHandler = useCallback(
@@ -276,13 +299,11 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         const venueId = venue.value;
         const sectionLabel = newSection.label;
 
-        Promise.all([
-          fetchSectionImage(venueId, sectionLabel, newSection?.status),
-          fetchSectionData(venueId, sectionLabel, newSection?.status),
-        ]).catch(console.error);
+        fetchSectionImage(venueId, sectionLabel, newSection?.status);
+        fetchSectionData(venueId, sectionLabel, newSection?.status);
       }
     },
-    [venue, fetchSectionImage, fetchSectionData, isOnline]
+    [venue?.value, fetchSectionImage, fetchSectionData]
   );
 
   const onVenueChange = useCallback((items: Venue[]) => {
@@ -290,13 +311,16 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
   }, []);
 
   const onSectionChange = useCallback(
-    debounce((sections: Section[]) => {
+    debounce((sections: Section[], section?: Section) => {
       dispatch({ type: "SET_SECTIONS", payload: sections });
+      if (section) {
+        dispatch({ type: "SET_SELECTED_SECTION", payload: section });
+      }
       if (venue?.value) {
-        writeCache(CACHE_PATHS.OFFLINE_SECTIONS(venue?.value), sections);
+        writeCache(CACHE_PATHS.OFFLINE_SECTIONS(venue.value), sections);
       }
     }, 500),
-    [venue]
+    [venue?.value]
   );
 
   const handleModalToggle = useCallback(
@@ -317,7 +341,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       dispatch({ type: "SET_LOADING", payload: { prompt: true } });
 
       const controller = new AbortController();
-      abortControllers.current.push(controller);
+      activeRequests.current.set("update-prompt", controller);
 
       try {
         const response = await updatePrompt(prompt, controller.signal);
@@ -331,12 +355,9 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           console.error(`Failed to update prompt:`, error);
         }
       } finally {
-        dispatch({ type: "SET_LOADING", payload: { prompt: false } });
         if (isMounted.current) {
-          const controllerIndex = abortControllers.current.indexOf(controller);
-          if (controllerIndex !== -1) {
-            abortControllers.current.splice(controllerIndex, 1);
-          }
+          dispatch({ type: "SET_LOADING", payload: { prompt: false } });
+          activeRequests.current.delete("update-prompt");
         }
       }
     },
@@ -403,7 +424,8 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     );
 
     const controller = new AbortController();
-    abortControllers.current.push(controller);
+    const requestId = `upload-${Date.now()}`;
+    activeRequests.current.set(requestId, controller);
 
     try {
       for (let i = 0; i < pendingImages.length; i += BATCH_SIZE) {
@@ -425,10 +447,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     } finally {
       if (isMounted.current) {
         dispatch({ type: "SET_LOADING", payload: { uploadImage: false } });
-        const controllerIndex = abortControllers.current.indexOf(controller);
-        if (controllerIndex !== -1) {
-          abortControllers.current.splice(controllerIndex, 1);
-        }
+        activeRequests.current.delete(requestId);
       }
     }
   }, [sectionImages, isOnline]);
@@ -589,7 +608,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     ToastAndroid.show("Generating content...", ToastAndroid.SHORT);
 
     const controller = new AbortController();
-    abortControllers.current.push(controller);
+    activeRequests.current.set("generate-content", controller);
 
     try {
       const response = await generateContent(
@@ -617,12 +636,9 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         console.error(`Failed to generate content:`, error);
       }
     } finally {
-      dispatch({ type: "SET_LOADING", payload: { content: false } });
       if (isMounted.current) {
-        const controllerIndex = abortControllers.current.indexOf(controller);
-        if (controllerIndex !== -1) {
-          abortControllers.current.splice(controllerIndex, 1);
-        }
+        dispatch({ type: "SET_LOADING", payload: { content: false } });
+        activeRequests.current.delete("generate-content");
       }
     }
   }, [sectionImages, sectionData, isOnline]);
@@ -631,7 +647,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     dispatch({ type: "SET_LOADING", payload: { content: true } });
 
     const controller = new AbortController();
-    abortControllers.current.push(controller);
+    activeRequests.current.set("save-content", controller);
 
     try {
       const response = await saveContent(
@@ -657,12 +673,9 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         console.error(`Failed to update prompt:`, error);
       }
     } finally {
-      dispatch({ type: "SET_LOADING", payload: { content: false } });
       if (isMounted.current) {
-        const controllerIndex = abortControllers.current.indexOf(controller);
-        if (controllerIndex !== -1) {
-          abortControllers.current.splice(controllerIndex, 1);
-        }
+        dispatch({ type: "SET_LOADING", payload: { content: false } });
+        activeRequests.current.delete("save-content");
       }
     }
   }, [section, venue, sectionData, prompt]);
@@ -693,12 +706,14 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         onPress={handleModalToggle}
         title={"Add / Rearrange / Modify Images"}
         isLoading={loading.saveImage}
+        shouldVisible={!!section?.value}
       />
       <Button
         onPress={handleUploadImages}
         title={"Upload Images"}
         isLoading={loading.uploadImage}
         isOnline={isOnline}
+        shouldVisible={!!section?.value}
       />
       <GenerateContent
         isVisible={sectionImages.length > 0}
@@ -728,6 +743,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         title={"Save Content & Process Images"}
         isLoading={loading.content}
         isOnline={isOnline}
+        shouldVisible={!!sectionData[0]?.description}
       />
       <ModificationModal
         isOpen={isModalOpen}

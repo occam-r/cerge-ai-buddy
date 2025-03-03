@@ -90,7 +90,13 @@ const DropdownMenu = React.memo(
           isNew: true,
           status: "incomplete" as ProcessMap,
         };
-        const updatedChips = [...initialItem, newItem];
+        const updatedChips = [
+          {
+            ...newItem,
+            isNew: false,
+          },
+          ...initialItem,
+        ];
         onChange?.(updatedChips);
         setSelectedItem(newItem);
       }

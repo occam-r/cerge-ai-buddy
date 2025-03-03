@@ -26,7 +26,7 @@ export interface ChipType {
 interface InputWithChipProps {
   status?: ProcessMap;
   initialChips?: ChipType[];
-  onChange?: (chips: ChipType[]) => void;
+  onChange?: (chips: ChipType[], chip?: ChipType) => void;
   loading?: boolean;
   selectedChip?: ChipType | null;
   setSelectedChip?: (chip: ChipType) => void;
@@ -80,7 +80,10 @@ const InputWithChip = React.memo(
               }
             : chip
         );
-        onChange?.(updatedChips);
+        onChange?.(
+          updatedChips,
+          updatedChips.find((chip) => chip.value == selectedChip?.value)
+        );
       },
       [initialChips, selectedChip, onChange]
     );

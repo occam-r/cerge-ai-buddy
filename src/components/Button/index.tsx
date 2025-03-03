@@ -6,6 +6,8 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextStyle,
+  ViewStyle,
 } from "react-native";
 
 const Button = ({
@@ -15,13 +17,15 @@ const Button = ({
   isLoading = false,
   style,
   textStyle,
+  shouldVisible = true,
 }: {
   onPress: () => void;
   title: string;
   isOnline?: boolean;
   isLoading?: boolean;
-  style?: object;
-  textStyle?: object;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
+  shouldVisible?: boolean;
 }) => {
   const getButtonStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => [
@@ -33,6 +37,8 @@ const Button = ({
     ],
     [isOnline, isLoading, style]
   );
+
+  if (!shouldVisible) return null;
 
   return (
     <Pressable
@@ -78,7 +84,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   disabledButton: {
-    opacity: 0.5
+    opacity: 0.5,
   },
   updateButtonText: {
     color: colors.background,
