@@ -1,7 +1,7 @@
 import Icon from "@components/Icon";
-import { ProcessMap } from "@lib/AppType";
+import { Venue } from "@lib/venueType";
 import colors from "@utils/colors";
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -30,19 +30,12 @@ import Animated, {
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DROPDOWN_MAX_HEIGHT = SCREEN_HEIGHT * 0.4;
 
-interface DropdownItem {
-  label: string;
-  value: string;
-  isNew?: boolean;
-  status?: ProcessMap;
-}
-
 type Props = {
-  initialItem?: DropdownItem[];
+  initialItem?: Venue[];
   loading?: boolean;
-  onChange?: (items: DropdownItem[]) => void;
-  selectedItem: DropdownItem | null;
-  setSelectedItem: (item: DropdownItem | null) => void;
+  onChange?: (items: Venue[]) => void;
+  selectedItem: Venue | null;
+  setSelectedItem: (item: Venue | null) => void;
   style?: ViewStyle;
 };
 
@@ -59,6 +52,7 @@ const DropdownMenu = React.memo(
   }: Props) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchText, setSearchText] = useState("");
+    const scrollViewRef = useRef<ScrollView>(null);
 
     const dropdownHeight = useSharedValue(0);
     const dropdownOpacity = useSharedValue(0);
@@ -84,11 +78,11 @@ const DropdownMenu = React.memo(
         searchText.trim() &&
         !initialItem?.some((item) => item.label === searchText)
       ) {
-        const newItem = {
+        const newItem: Venue = {
           label: searchText,
           value: searchText.toLowerCase().replace(/\s+/g, "-"),
           isNew: true,
-          status: "incomplete" as ProcessMap,
+          status: "incomplete",
         };
         const updatedChips = [
           {
@@ -122,6 +116,7 @@ const DropdownMenu = React.memo(
     const openDropdown = () => {
       dropdownHeight.value = withTiming(DROPDOWN_MAX_HEIGHT, { duration: 300 });
       dropdownOpacity.value = withTiming(1, { duration: 200 });
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       setIsOpen(true);
     };
 
@@ -159,6 +154,19 @@ const DropdownMenu = React.memo(
         runOnJS(closeDropdown)();
       });
 
+    const getSortedItems = useCallback(() => {
+      if (!searchText.trim()) return initialItem;
+
+      return [...initialItem].sort((a, b) => {
+        const aStartsWith = a.label.toLowerCase().startsWith(searchText.toLowerCase());
+        const bStartsWith = b.label.toLowerCase().startsWith(searchText.toLowerCase());
+
+        if (aStartsWith && !bStartsWith) return -1;
+        if (!aStartsWith && bStartsWith) return 1;
+        return 0;
+      });
+    }, [initialItem, searchText])
+
     return (
       <View style={[styles.container, style]}>
         {loading ? (
@@ -175,6 +183,7 @@ const DropdownMenu = React.memo(
               onChangeText={(text) => {
                 setSearchText(text);
                 if (selectedItem) setSelectedItem(null);
+                scrollViewRef.current?.scrollTo({ y: 0, animated: true });
               }}
               onFocus={openDropdown}
             />
@@ -197,6 +206,7 @@ const DropdownMenu = React.memo(
             {/* Dropdown List */}
             <Animated.View style={[styles.dropdown, dropdownAnimatedStyle]}>
               <ScrollView
+                ref={scrollViewRef}
                 style={styles.scrollView}
                 keyboardShouldPersistTaps="always"
                 keyboardDismissMode="on-drag"
@@ -214,7 +224,7 @@ const DropdownMenu = React.memo(
                     </Text>
                   </TouchableOpacity>
                 )}
-                {initialItem?.map((item) => {
+                {getSortedItems().map((item) => {
                   const isExactMatch =
                     item.label.toLowerCase() === searchText.toLowerCase();
                   return (
@@ -224,12 +234,9 @@ const DropdownMenu = React.memo(
                         styles.item,
                         {
                           backgroundColor:
-                            colors[
-                              isExactMatch
-                                ? "primary"
-                                : item.status ?? "background"
-                            ],
-                        },
+                            isExactMatch ? colors.primary : colors[item.status ?? "background"],
+                        }
+
                       ]}
                       onPress={() => {
                         if (selectedItem?.value === item.value) {
@@ -310,13 +317,14 @@ const styles = StyleSheet.create({
     maxHeight: DROPDOWN_MAX_HEIGHT,
   },
   item: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: colors.border,
   },
   itemText: {
     fontSize: 16,
-    color: "#333",
+    color: colors.text,
   },
   addText: {
     fontSize: 16,

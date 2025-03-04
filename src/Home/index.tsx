@@ -14,6 +14,7 @@ import {
   getSectionData,
   getSectionImages,
   getVenues,
+  renameSectionFolder,
   saveContent,
   updatePrompt,
   uploadImages,
@@ -29,7 +30,6 @@ import debounce from "lodash/debounce";
 import React, {
   useCallback,
   useEffect,
-  useMemo,
   useReducer,
   useRef,
   useState,
@@ -65,7 +65,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     sectionData,
     loading,
     prompt,
-  } = useMemo(() => state, [state]);
+  } = state;
 
   const fetchData = useCallback(
     async <T,>({
@@ -120,40 +120,67 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         if (!isMounted.current || controller.signal.aborted) return;
 
         if (Array.isArray(serverData) || Array.isArray(offlineData)) {
-          const mergedData = [
-            ...(Array.isArray(serverData) ? serverData : []),
-            ...(Array.isArray(offlineData)
-              ? (offlineData as any[]).map((item: any) => ({
-                  ...item,
-                  isNew: false,
-                }))
-              : []),
-          ];
-
           switch (type) {
             case "venues":
-              dispatch({ type: "SET_VENUES", payload: mergedData as Venue[] });
+              const venuesMergedData = [
+                ...(Array.isArray(serverData) ? serverData : []),
+                ...(Array.isArray(offlineData)
+                  ? (offlineData as any[]).map((item: any) => ({
+                    ...item,
+                    isNew: false,
+                  }))
+                  : []),
+              ];
+              dispatch({
+                type: "SET_VENUES",
+                payload: venuesMergedData as Venue[],
+              });
               break;
             case "sections":
-              const sectionMap = new Map<string, Section>();
-              mergedData.forEach((section) =>
-                sectionMap.set(section.value, section)
-              );
+              const sectionMergedData = new Map<string, Section>();
+
+              if (Array.isArray(serverData)) {
+                serverData.forEach((section) =>
+                  sectionMergedData.set(section.value, section)
+                );
+              }
+
+              if (Array.isArray(offlineData)) {
+                offlineData.forEach((section) =>
+                  sectionMergedData.set(section.value, { ...section, isNew: false })
+                );
+              }
+
               dispatch({
                 type: "SET_SECTIONS",
-                payload: Array.from(sectionMap.values()) as Section[],
+                payload: Array.from(sectionMergedData.values()) as Section[],
               });
               break;
             case "images":
+              const imagesMergedData = [
+                ...(Array.isArray(serverData) ? serverData : []),
+                ...(Array.isArray(offlineData)
+                  ? (offlineData as any[]).map((item: any) => ({
+                    ...item,
+                    isNew: false,
+                  }))
+                  : []),
+              ];
               dispatch({
                 type: "SET_SECTION_IMAGES",
-                payload: mergedData as SectionImage[],
+                payload: imagesMergedData as SectionImage[],
               });
               break;
             case "data":
+              const dataMergedData = [
+                {
+                  ...(Array.isArray(serverData) ? serverData[0] : []),
+                  ...(Array.isArray(offlineData) ? offlineData[0] : []),
+                },
+              ];
               dispatch({
                 type: "SET_SECTION_DATA",
-                payload: mergedData as Area[],
+                payload: dataMergedData as Area[],
               });
               break;
           }
@@ -161,6 +188,10 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       } catch (error) {
         if (!isMounted.current) return;
         console.error(`Failed to fetch ${type}:`, error);
+        ToastAndroid.show(
+          `Failed to load ${type}. Please try again.`,
+          ToastAndroid.SHORT
+        );
       } finally {
         if (isMounted.current) {
           dispatch({ type: "SET_LOADING", payload: { [type]: false } });
@@ -177,14 +208,13 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       cachePath: CACHE_PATHS.VENUES,
       offlineCachePath: CACHE_PATHS.OFFLINE_VENUES,
       type: "venues",
-      shouldFetchOnline: isOnline,
+      shouldFetchOnline: true,
       requestId: "venues",
     });
-  }, [fetchData, isOnline]);
+  }, [fetchData]);
 
   const fetchSection = useCallback(
     (id: string, status?: ProcessMap) => {
-      console.log("KJ 1", id, status);
       return fetchData<Section[]>({
         onlineFetch: (signal) => getSection({ id }, signal),
         cachePath: CACHE_PATHS.SECTIONS(id),
@@ -198,30 +228,40 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
   );
 
   const fetchSectionImage = useCallback(
-    (venueId: string, sectionLabel: string, status?: ProcessMap) => {
+    (
+      venueId: string,
+      sectionLabel: string,
+      sectionValue: string,
+      status?: ProcessMap
+    ) => {
       return fetchData<SectionImage[]>({
         onlineFetch: (signal) =>
           getSectionImages({ venueId, sectionName: sectionLabel }, signal),
-        cachePath: CACHE_PATHS.IMAGES(venueId, sectionLabel),
-        offlineCachePath: CACHE_PATHS.OFFLINE_IMAGES(venueId, sectionLabel),
+        cachePath: CACHE_PATHS.IMAGES(venueId, sectionValue),
+        offlineCachePath: CACHE_PATHS.OFFLINE_IMAGES(venueId, sectionValue),
         type: "images",
         shouldFetchOnline: status !== "incomplete",
-        requestId: `images-${venueId}-${sectionLabel}`,
+        requestId: `images-${venueId}-${sectionValue}`,
       });
     },
     [fetchData]
   );
 
   const fetchSectionData = useCallback(
-    (venueId: string, sectionLabel: string, status?: ProcessMap) => {
+    (
+      venueId: string,
+      sectionLabel: string,
+      sectionValue: string,
+      status?: ProcessMap
+    ) => {
       return fetchData<Area[]>({
         onlineFetch: (signal) =>
           getSectionData({ venueId, sectionName: sectionLabel }, signal),
-        cachePath: CACHE_PATHS.DATA(venueId, sectionLabel),
-        offlineCachePath: CACHE_PATHS.OFFLINE_DATA(venueId, sectionLabel),
+        cachePath: CACHE_PATHS.DATA(venueId, sectionValue),
+        offlineCachePath: CACHE_PATHS.OFFLINE_DATA(venueId, sectionValue),
         type: "data",
         shouldFetchOnline: status !== "incomplete",
-        requestId: `data-${venueId}-${sectionLabel}`,
+        requestId: `data-${venueId}-${sectionValue}`,
       });
     },
     [fetchData]
@@ -295,12 +335,28 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       dispatch({ type: "SET_SECTION_DATA", payload: [] });
       dispatch({ type: "SET_SECTION_IMAGES", payload: [] });
 
-      if (venue?.value && newSection?.label && newSection.label.length >= 1) {
+      if (
+        venue?.value &&
+        newSection?.label &&
+        newSection?.value &&
+        newSection.label.length >= 1
+      ) {
         const venueId = venue.value;
         const sectionLabel = newSection.label;
+        const sectionValue = newSection.value;
 
-        fetchSectionImage(venueId, sectionLabel, newSection?.status);
-        fetchSectionData(venueId, sectionLabel, newSection?.status);
+        fetchSectionImage(
+          venueId,
+          sectionLabel,
+          sectionValue,
+          newSection?.status
+        );
+        fetchSectionData(
+          venueId,
+          sectionLabel,
+          sectionValue,
+          newSection?.status
+        );
       }
     },
     [venue?.value, fetchSectionImage, fetchSectionData]
@@ -315,12 +371,51 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       dispatch({ type: "SET_SECTIONS", payload: sections });
       if (section) {
         dispatch({ type: "SET_SELECTED_SECTION", payload: section });
+        if (!section?.isNew && !section?.value.includes("new-")) {
+          handleRenameFolder(section);
+        }
       }
       if (venue?.value) {
         writeCache(CACHE_PATHS.OFFLINE_SECTIONS(venue.value), sections);
       }
     }, 500),
     [venue?.value]
+  );
+
+  const handleRenameFolder = useCallback(
+    async (section?: Section) => {
+      const controller = new AbortController();
+      activeRequests.current.set("rename-folder", controller);
+
+      try {
+        const response = await renameSectionFolder(
+          {
+            newName: section?.label ?? "",
+            folderId: section?.value ?? "",
+            completedForm: JSON.stringify({
+              areas: sectionData,
+              venueName: venue?.value ?? "",
+              prompt: prompt,
+            }),
+          },
+          controller.signal
+        );
+
+        if (isMounted.current) {
+          ToastAndroid.show(response, ToastAndroid.SHORT);
+        }
+      } catch (error) {
+        if (isMounted.current) {
+          console.error(`Failed to update folder name:`, error);
+        }
+      } finally {
+        if (isMounted.current) {
+          activeRequests.current.delete("save-content");
+        }
+      }
+    },
+
+    [venue, sectionData, prompt]
   );
 
   const handleModalToggle = useCallback(
@@ -395,14 +490,6 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
   );
 
   const handleUploadImages = useCallback(async () => {
-    if (!isOnline) {
-      ToastAndroid.show(
-        "Cannot upload images while offline. Please connect to the internet.",
-        ToastAndroid.LONG
-      );
-      return;
-    }
-
     const pendingImages = sectionImages
       .map(({ path, type, status }, index) => ({ path, type, status, index }))
       .filter(({ status }) => status === "pending");
@@ -428,14 +515,21 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     activeRequests.current.set(requestId, controller);
 
     try {
-      for (let i = 0; i < pendingImages.length; i += BATCH_SIZE) {
-        const batch = pendingImages.slice(i, i + BATCH_SIZE);
-        const results = await processBatch(batch, controller.signal);
+      let successCount = 0;
+      for (let i = 0; i < pendingImages.length; i++) {
+        const { path, type, index } = pendingImages[i];
+        const success = await processImage(
+          path,
+          type,
+          index,
+          controller.signal
+        );
 
-        const successCount = results.filter((result) => result.success).length;
-        if (i + BATCH_SIZE < pendingImages.length) {
+        if (success) successCount++;
+
+        if ((i + 1) % BATCH_SIZE === 0 || i === pendingImages.length - 1) {
           ToastAndroid.show(
-            `Uploaded ${i + successCount} of ${pendingImages.length} images...`,
+            `Uploaded ${successCount} of ${pendingImages.length} images...`,
             ToastAndroid.SHORT
           );
         }
@@ -443,98 +537,126 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
 
       ToastAndroid.show("Image upload complete", ToastAndroid.SHORT);
     } catch (error) {
-      console.error("Batch processing error:", error);
+      console.error("Image upload error:", error);
     } finally {
       if (isMounted.current) {
         dispatch({ type: "SET_LOADING", payload: { uploadImage: false } });
+
+        if (venue?.value && section?.label) {
+          try {
+            const offlineSectionPath = CACHE_PATHS.OFFLINE_SECTIONS(venue.value)
+            const offlineImagePath = CACHE_PATHS.OFFLINE_IMAGES(
+              venue.value,
+              section.value
+            );
+            const offlineDataPath = CACHE_PATHS.OFFLINE_DATA(
+              venue.value,
+              section.value
+            );
+
+            const updatedSections: Section[] = [];
+            const filteredSections: Section[] = [];
+            sections?.forEach((s) => {
+              if (s.label === section.label) {
+                updatedSections.push({ ...s, status: "processed" });
+              } else {
+                updatedSections.push(s);
+                filteredSections.push(s);
+              }
+            });
+            dispatch({ type: "SET_SECTIONS", payload: updatedSections });
+            writeCache(offlineSectionPath, filteredSections);
+            writeCache(offlineDataPath, []);
+            writeCache(offlineImagePath, []);
+            console.info("Cleared offline cache after successful uploads");
+          } catch (cacheError) {
+            console.error("Error clearing offline cache:", cacheError);
+          }
+        }
         activeRequests.current.delete(requestId);
       }
     }
-  }, [sectionImages, isOnline]);
+  }, [sectionImages, venue, section, sections]);
 
-  const processBatch = async (
-    batch: { path: string; type: string; index: number }[],
+  const processImage = async (
+    path: string,
+    type: string,
+    index: number,
     signal: AbortSignal
-  ) => {
-    return Promise.all(
-      batch.map(async ({ path, type, index }) => {
-        if (!isMounted.current || signal.aborted) {
-          return { index, success: false };
+  ): Promise<boolean> => {
+    if (!isMounted.current || signal.aborted) {
+      return false;
+    }
+
+    dispatch({
+      type: "UPDATE_IMAGE_STATUS",
+      payload: { index, status: "uploading" },
+    });
+
+    let retries = 0;
+    let success = false;
+    let error;
+
+    while (
+      retries <= MAX_RETRIES &&
+      !success &&
+      !signal.aborted &&
+      isMounted.current
+    ) {
+      try {
+        const fileData = {
+          uri: path,
+          name: `${index + 1}.jpg`,
+          type: type,
+        };
+
+        await uploadImages(
+          {
+            image: fileData,
+            sectionName: section?.label ?? "",
+            venueName: venue?.label ?? "",
+            completedForm: {
+              areas: sectionData,
+              venueName: venue?.value ?? "",
+              prompt: prompt,
+            },
+          },
+          signal
+        );
+
+        if (isMounted.current && !signal.aborted) {
+          dispatch({
+            type: "UPDATE_IMAGE_STATUS",
+            payload: { index, status: "success" },
+          });
+          success = true;
         }
+      } catch (err) {
+        error = err;
+        retries++;
 
-        dispatch({
-          type: "UPDATE_IMAGE_STATUS",
-          payload: { index, status: "uploading" },
-        });
-
-        let retries = 0;
-        let success = false;
-        let error;
-
-        while (
-          retries <= MAX_RETRIES &&
-          !success &&
-          !signal.aborted &&
-          isMounted.current
-        ) {
-          try {
-            const fileData = {
-              uri: path,
-              name: `${index}.jpg`,
-              type: type,
-            };
-
-            await uploadImages(
-              {
-                image: fileData,
-                sectionName: section?.label ?? "",
-                venueName: venue?.label ?? "",
-                completedForm: {
-                  areas: sectionData,
-                  venueName: venue?.value ?? "",
-                  prompt: prompt,
-                },
-              },
-              signal
+        if (isMounted.current && !signal.aborted) {
+          if (retries > MAX_RETRIES) {
+            console.error(
+              `Failed to upload image ${index} after ${MAX_RETRIES} retries:`,
+              error
             );
-
-            if (isMounted.current && !signal.aborted) {
-              dispatch({
-                type: "UPDATE_IMAGE_STATUS",
-                payload: { index, status: "success" },
-              });
-              success = true;
-            }
-          } catch (err) {
-            error = err;
-            retries++;
-
-            if (isMounted.current && !signal.aborted) {
-              if (retries > MAX_RETRIES) {
-                console.error(
-                  `Failed to upload image ${index} after ${MAX_RETRIES} retries:`,
-                  error
-                );
-                dispatch({
-                  type: "UPDATE_IMAGE_STATUS",
-                  payload: { index, status: "failed" },
-                });
-              } else {
-                await new Promise((resolve) =>
-                  setTimeout(resolve, RETRY_DELAY_MS * retries)
-                );
-              }
-            }
+            dispatch({
+              type: "UPDATE_IMAGE_STATUS",
+              payload: { index, status: "failed" },
+            });
+          } else {
+            const backoffDelay = Math.min(
+              RETRY_DELAY_MS * Math.pow(2, retries - 1),
+              30000
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoffDelay));
           }
         }
+      }
+    }
 
-        if (!success && isMounted.current && !signal.aborted) {
-          console.error(`Failed to upload image ${index}:`, error);
-        }
-
-        return { index, success };
-      })
-    );
+    return success;
   };
 
   const handleDescriptionUpdate = useCallback(
@@ -562,12 +684,13 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
             )
         );
 
-        if (venue?.value && section?.label && uniqueImages.length > 0) {
-          await writeCache(
-            CACHE_PATHS.OFFLINE_IMAGES(venue?.value, section?.label),
-            uniqueImages
-          );
-        }
+        const newSectionData = [
+          {
+            ...sectionData[0],
+            shadowCorrections: shadow,
+            heroImages: hero,
+          },
+        ];
 
         dispatch({ type: "SET_SECTION_IMAGES", payload: images });
         dispatch({
@@ -584,6 +707,16 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
             value: hero,
           },
         });
+        if (venue?.value && section?.value && uniqueImages.length > 0) {
+          await writeCache(
+            CACHE_PATHS.OFFLINE_IMAGES(venue?.value, section?.value),
+            uniqueImages
+          );
+          await writeCache(
+            CACHE_PATHS.OFFLINE_DATA(venue?.value, section?.value),
+            newSectionData
+          );
+        }
         ToastAndroid.show("Images saved successfully", ToastAndroid.SHORT);
       } catch (error) {
         console.error("Error in handleSaveImage:", error);
@@ -592,7 +725,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         dispatch({ type: "SET_LOADING", payload: { saveImage: false } });
       }
     },
-    [sectionImages, venue, section]
+    [sectionImages, sectionData, venue, section]
   );
 
   const handleGenerateContent = useCallback(async () => {
@@ -634,6 +767,10 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     } catch (error) {
       if (isMounted.current) {
         console.error(`Failed to generate content:`, error);
+        ToastAndroid.show(
+          "Failed to generate content. Please try again.",
+          ToastAndroid.LONG
+        );
       }
     } finally {
       if (isMounted.current) {
@@ -750,8 +887,8 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         onClose={handleModalToggle}
         data={sectionImages}
         onSaved={handleSaveImage}
-        shadowCorrections={sectionData[0]?.shadowCorrections ?? []}
-        heroImages={sectionData[0]?.heroImages ?? []}
+        shadow={sectionData[0]?.shadowCorrections ?? []}
+        hero={sectionData[0]?.heroImages ?? []}
       />
     </ScrollView>
   );

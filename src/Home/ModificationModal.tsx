@@ -1,3 +1,4 @@
+import Button from "@components/Button";
 import Icon from "@components/Icon";
 import { SectionImage, Status } from "@lib/sectionImageType";
 import {
@@ -17,7 +18,6 @@ import React, {
 import {
   Image,
   Modal,
-  Pressable,
   StyleSheet,
   Text,
   ToastAndroid,
@@ -33,33 +33,34 @@ import Sortable, {
   SortableGridRenderItem,
 } from "react-native-sortables";
 
+interface CheckboxItemProps {
+  isChecked: boolean;
+  onToggle: () => void;
+  label: string;
+  iconChecked: string;
+  iconUnchecked: string;
+}
+
+interface GridItemProps {
+  item: SectionImage;
+  hasShadowCorrection: boolean;
+  isHeroImage: boolean;
+  onToggleShadowCorrection: () => void;
+  onToggleHeroImage: () => void;
+  onDeleteImage: () => void;
+}
+
+interface ModificationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  data: SectionImage[];
+  onSaved: (images: SectionImage[], shadow: boolean[], hero: boolean[]) => void;
+  shadow: boolean[];
+  hero: boolean[];
+}
+
 const CARD_HEIGHT = 200;
 const COLUMNS = 2;
-
-const ActionButton = memo(
-  ({
-    label,
-    onPress,
-    style,
-    textStyle,
-    icon,
-  }: {
-    label: string;
-    onPress: () => void;
-    style: any;
-    textStyle: any;
-    icon?: string;
-  }) => (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [style, { opacity: pressed ? 0.6 : 1 }]}
-      android_ripple={{ color: "#00000010" }}
-    >
-      {icon && <Icon type="Feather" name={icon} size={24} />}
-      <Text style={textStyle}>{label}</Text>
-    </Pressable>
-  )
-);
 
 const CheckboxItem = memo(
   ({
@@ -68,19 +69,13 @@ const CheckboxItem = memo(
     label,
     iconChecked,
     iconUnchecked,
-  }: {
-    isChecked: boolean;
-    onToggle: () => void;
-    label: string;
-    iconChecked: string;
-    iconUnchecked: string;
-  }) => (
+  }: CheckboxItemProps) => (
     <TouchableOpacity onPress={onToggle} style={styles.checkbox}>
       <Icon
         type="MaterialIcons"
         name={isChecked ? iconChecked : iconUnchecked}
         size={24}
-        color={colors.primary}
+        color={colors.background}
       />
       <Text style={styles.checkboxLabel}>{label}</Text>
     </TouchableOpacity>
@@ -95,14 +90,7 @@ const GridItem = memo(
     onToggleShadowCorrection,
     onToggleHeroImage,
     onDeleteImage,
-  }: {
-    item: SectionImage;
-    hasShadowCorrection: boolean;
-    isHeroImage: boolean;
-    onToggleShadowCorrection: () => void;
-    onToggleHeroImage: () => void;
-    onDeleteImage: () => void;
-  }) => {
+  }: GridItemProps) => {
     const imageSource = useMemo(
       () => ({
         uri:
@@ -158,36 +146,32 @@ const ModificationModal = ({
   onClose,
   data,
   onSaved,
-  shadowCorrections,
-  heroImages,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  data: SectionImage[];
-  onSaved: (images: SectionImage[], shadow: boolean[], hero: boolean[]) => void;
-  shadowCorrections: boolean[];
-  heroImages: boolean[];
-}) => {
+  shadow,
+  hero,
+}: ModificationModalProps) => {
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   const [state, dispatch] = useReducer(
     modificationReducer,
     modificationInitialState
   );
 
-  const initialData = useMemo(
-    () => ({
+  const { heroImages, orderChanged, sectionImages, shadowCorrections } = state;
+
+  const initialData = useMemo(() => {
+    const shadowObj: Record<string, boolean> = {};
+    const heroObj: Record<string, boolean> = {};
+
+    data.forEach((item, index) => {
+      shadowObj[item.id] = shadow[index];
+      heroObj[item.id] = hero[index];
+    });
+
+    return {
       sectionImages: data,
-      shadowCorrections: data.reduce(
-        (acc, _, i) => ({ ...acc, [data[i].id]: shadowCorrections[i] }),
-        {}
-      ),
-      heroImages: data.reduce(
-        (acc, _, i) => ({ ...acc, [data[i].id]: heroImages[i] }),
-        {}
-      ),
-    }),
-    [data, shadowCorrections, heroImages]
-  );
+      shadowCorrections: shadowObj,
+      heroImages: heroObj,
+    };
+  }, [data, shadow, hero]);
 
   useEffect(() => {
     if (isOpen) {
@@ -211,19 +195,14 @@ const ModificationModal = ({
     ({ item }) => (
       <GridItem
         item={item}
-        hasShadowCorrection={state.shadowCorrections[item.id]}
-        isHeroImage={state.heroImages[item.id]}
+        hasShadowCorrection={shadowCorrections[item.id]}
+        isHeroImage={heroImages[item.id]}
         onToggleShadowCorrection={() => eventHandlers.toggleShadow(item.id)}
         onToggleHeroImage={() => eventHandlers.toggleHero(item.id)}
         onDeleteImage={() => eventHandlers.deleteImage(item.id)}
       />
     ),
-    [
-      state.sectionImages,
-      state.shadowCorrections,
-      state.heroImages,
-      eventHandlers,
-    ]
+    [shadowCorrections, heroImages, eventHandlers]
   );
 
   const handleOrderChange = useCallback((params: OrderChangeParams) => {
@@ -243,29 +222,46 @@ const ModificationModal = ({
   }, [onClose]);
 
   const handleOnSaved = useCallback(() => {
-    if (state.orderChanged) {
-      const { indexToKey } = state.orderChanged;
-      const newData = indexToKey
-        .map((key) => state.sectionImages.find((item) => item.id === key))
-        .filter((item): item is SectionImage => item !== undefined);
-      const newShadow = indexToKey.map(
-        (key) => state.shadowCorrections[key] || false
-      );
-      const newHero = indexToKey.map((key) => state.heroImages[key] || false);
-      onSaved(newData, newShadow, newHero);
-    } else {
-      onSaved(
-        state.sectionImages,
-        Object.values(state.shadowCorrections),
-        Object.values(state.heroImages)
-      );
+    try {
+      if (orderChanged?.indexToKey) {
+        const imageMap = new Map(sectionImages.map((item) => [item.id, item]));
+
+        const newData: SectionImage[] = [];
+        const newShadow: boolean[] = [];
+        const newHero: boolean[] = [];
+
+        for (const key of orderChanged.indexToKey) {
+          const image = imageMap.get(key);
+          if (image) {
+            newData.push(image);
+            newShadow.push(shadowCorrections[key] || false);
+            newHero.push(heroImages[key] || false);
+          }
+        }
+
+        onSaved(newData, newShadow, newHero);
+      } else {
+        const orderedShadowCorrections: boolean[] = [];
+        const orderedHeroImages: boolean[] = [];
+
+        sectionImages.forEach((image) => {
+          orderedShadowCorrections.push(shadowCorrections[image.id] || false);
+          orderedHeroImages.push(heroImages[image.id] || false);
+        });
+
+        onSaved(sectionImages, orderedShadowCorrections, orderedHeroImages);
+      }
+
+      handleOnClose();
+    } catch (error) {
+      console.error("Error saving modifications:", error);
+      ToastAndroid.show("Failed to save changes", ToastAndroid.SHORT);
     }
-    handleOnClose();
   }, [
-    state.orderChanged,
-    state.sectionImages,
-    state.shadowCorrections,
-    state.heroImages,
+    orderChanged,
+    sectionImages,
+    shadowCorrections,
+    heroImages,
     onSaved,
     handleOnClose,
   ]);
@@ -306,17 +302,21 @@ const ModificationModal = ({
         }));
 
         if (type === "camera" && result.assets.length > 0) {
-          Promise.all(
-            result.assets.map((asset) =>
-              MediaLibrary.saveToLibraryAsync(asset.uri)
-            )
-          ).catch((error) =>
-            console.error("Failed to save images to library:", error)
-          );
+          try {
+            await Promise.all(
+              result.assets.map((asset) =>
+                MediaLibrary.saveToLibraryAsync(asset.uri)
+              )
+            );
+          } catch (saveError) {
+            console.error("Failed to save images to library:", saveError);
+          }
         }
 
-        const { sectionImages, shadowCorrections, heroImages } = state;
-        const imageIds = newImages.map((img) => img.id);
+        const imageSettings = newImages.reduce((acc, img) => {
+          acc[img.id] = false;
+          return acc;
+        }, {} as Record<string, boolean>);
 
         dispatch({
           type: "SET_MODAL_DATA",
@@ -324,20 +324,26 @@ const ModificationModal = ({
             sectionImages: [...sectionImages, ...newImages],
             shadowCorrections: {
               ...shadowCorrections,
-              ...Object.fromEntries(imageIds.map((id) => [id, false])),
+              ...imageSettings,
             },
             heroImages: {
               ...heroImages,
-              ...Object.fromEntries(imageIds.map((id) => [id, false])),
+              ...imageSettings,
             },
           },
         });
+        scrollableRef.current?.scrollToEnd({
+          animated: true,
+        });
       } catch (error) {
         console.error("Error picking images:", error);
-        ToastAndroid.show("Failed to process images", ToastAndroid.SHORT);
+        ToastAndroid.show(
+          "Failed to process images. Please try again.",
+          ToastAndroid.SHORT
+        );
       }
     },
-    [state]
+    [sectionImages, shadowCorrections, heroImages]
   );
 
   const keyExtractor = useCallback((item: SectionImage) => item.id, []);
@@ -360,7 +366,7 @@ const ModificationModal = ({
               onOrderChange={handleOrderChange}
               columnGap={10}
               columns={COLUMNS}
-              data={state.sectionImages}
+              data={sectionImages}
               renderItem={renderItem}
               rowGap={10}
               keyExtractor={keyExtractor}
@@ -369,30 +375,30 @@ const ModificationModal = ({
           </Animated.ScrollView>
           <View style={styles.footer}>
             <View style={styles.footerButton}>
-              <ActionButton
+              <Button
                 onPress={() => handleImagePick("camera")}
                 style={styles.cameraGallery}
-                label="Take Photo"
+                title="Take Photo"
                 textStyle={styles.text}
                 icon="camera"
               />
-              <ActionButton
+              <Button
                 onPress={() => handleImagePick("gallery")}
                 style={styles.cameraGallery}
-                label="Gallery"
+                title="Gallery"
                 textStyle={styles.text}
                 icon="image"
               />
             </View>
             <View style={styles.footerButton}>
-              <ActionButton
-                label="Close"
+              <Button
+                title="Close"
                 onPress={handleOnClose}
                 style={styles.closeButton}
                 textStyle={styles.closeText}
               />
-              <ActionButton
-                label="Save"
+              <Button
+                title="Save"
                 onPress={handleOnSaved}
                 style={styles.saveButton}
                 textStyle={styles.saveText}
@@ -416,7 +422,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 12,
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.background,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -447,45 +453,44 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     marginLeft: 8,
     fontSize: 14,
-    color: "#495057",
+    color: colors.background,
   },
   footerButton: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
+    gap: 12,
   },
   footer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.background,
     borderTopWidth: 1,
     borderTopColor: "#e9ecef",
+    gap: 12,
   },
   saveButton: {
     flex: 1,
-    alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primary,
     borderRadius: 12,
-    padding: 14,
+    marginTop: 0,
+    marginBottom: 12,
   },
   closeButton: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "#f1f3f5",
     borderWidth: 1,
     borderColor: "#dee2e6",
     borderRadius: 12,
-    padding: 14,
+    marginTop: 0,
+    marginBottom: 12,
   },
   saveText: {
     fontSize: 16,
-    color: "white",
+    color: colors.background,
     fontWeight: "600",
   },
   closeText: {
@@ -495,19 +500,15 @@ const styles = StyleSheet.create({
   },
   cameraGallery: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
     borderWidth: 1,
     borderRadius: 12,
-    height: 50,
-    flexDirection: "row",
     borderColor: colors.primary,
+    backgroundColor: colors.background,
   },
   text: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#000",
-    marginLeft: 20,
+    color: colors.text,
   },
 });
 

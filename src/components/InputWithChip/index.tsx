@@ -1,4 +1,5 @@
-import { ProcessMap } from "@lib/AppType";
+import Button from "@components/Button";
+import { Section } from "@lib/sectionType";
 import colors from "@utils/colors";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
@@ -14,22 +15,16 @@ import Animated, {
   FadeIn,
   FadeOut,
   LinearTransition,
+  useAnimatedStyle,
+  withSpring,
 } from "react-native-reanimated";
 
-export interface ChipType {
-  value: string;
-  label: string;
-  isNew?: boolean;
-  status?: ProcessMap;
-}
-
-interface InputWithChipProps {
-  status?: ProcessMap;
-  initialChips?: ChipType[];
-  onChange?: (chips: ChipType[], chip?: ChipType) => void;
+interface Props {
+  initialChips?: Section[];
+  onChange?: (chips: Section[], chip?: Section) => void;
   loading?: boolean;
-  selectedChip?: ChipType | null;
-  setSelectedChip?: (chip: ChipType) => void;
+  selectedChip?: Section | null;
+  setSelectedChip?: (chip: Section) => void;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -37,6 +32,7 @@ const MAX_CHIP_WIDTH = SCREEN_WIDTH * 0.6;
 const CHIP_REGEX = /^\d+\.\s*/;
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 const InputWithChip = React.memo(
   ({
@@ -45,7 +41,7 @@ const InputWithChip = React.memo(
     loading = false,
     selectedChip,
     setSelectedChip,
-  }: InputWithChipProps) => {
+  }: Props) => {
     const [inputValue, setInputValue] = useState("");
     const inputRef = useRef<TextInput>(null);
 
@@ -56,7 +52,7 @@ const InputWithChip = React.memo(
 
     const handleAddChip = useCallback(() => {
       const newChipNumber = initialChips.length + 1;
-      const newChip: ChipType = {
+      const newChip: Section = {
         value: `new-${Date.now()}`,
         label: `${newChipNumber}`,
         isNew: true,
@@ -72,24 +68,40 @@ const InputWithChip = React.memo(
     const handleInputChange = useCallback(
       (text: string) => {
         setInputValue(text);
+        if (!selectedChip?.value.includes("new-")) return;
         const updatedChips = initialChips.map((chip) =>
           chip.value === selectedChip?.value
             ? {
-                ...chip,
-                label: chip.isNew ? text.replace(CHIP_REGEX, "") : text,
-              }
+              ...chip,
+              label: text,
+            }
             : chip
         );
         onChange?.(
           updatedChips,
-          updatedChips.find((chip) => chip.value == selectedChip?.value)
+          updatedChips.find((chip) => chip.value === selectedChip?.value)
         );
       },
       [initialChips, selectedChip, onChange]
     );
 
+    const handleUpdateName = useCallback(() => {
+      const updatedChips = initialChips.map((chip) =>
+        chip.value === selectedChip?.value
+          ? {
+            ...chip,
+            label: inputValue.replace(CHIP_REGEX, ""),
+          }
+          : chip
+      );
+      onChange?.(
+        updatedChips,
+        updatedChips.find((chip) => chip.value === selectedChip?.value)
+      );
+    }, [inputValue, initialChips, onChange, selectedChip]);
+
     const handleSelectChip = useCallback(
-      (chip: ChipType) => {
+      (chip: Section) => {
         setSelectedChip?.(chip);
         const selected = chipsMap.get(chip.value);
         setInputValue((selected?.label ?? "").replace(CHIP_REGEX, ""));
@@ -97,8 +109,15 @@ const InputWithChip = React.memo(
       [chipsMap, setSelectedChip]
     );
 
+    const inputAnimatedStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ scale: withSpring(1) }],
+      };
+    });
+
     const renderChip = useCallback(
-      (item: ChipType) => {
+      (item: Section) => {
+        console.log("KKJJ", item.status);
         const isSelected = selectedChip?.value === item.value;
 
         return (
@@ -111,7 +130,7 @@ const InputWithChip = React.memo(
               styles.chip,
               {
                 backgroundColor:
-                  colors[isSelected ? "primary" : item.status ?? "border"],
+                  isSelected ? colors.primary : colors[item.status ?? "processed"],
               },
             ]}
             onPress={() => handleSelectChip(item)}
@@ -122,7 +141,12 @@ const InputWithChip = React.memo(
             }
           >
             <Text
-              style={[styles.chipText, isSelected && styles.selectedChipText]}
+              style={[
+                styles.chipText,
+                {
+                  fontWeight: isSelected ? "600" : "500",
+                },
+              ]}
               numberOfLines={1}
               ellipsizeMode="tail"
             >
@@ -141,7 +165,10 @@ const InputWithChip = React.memo(
 
     return (
       <View style={styles.container} accessibilityRole="menu">
-        <View style={styles.chipsContainer}>
+        <Animated.View
+          style={styles.chipsContainer}
+          layout={LinearTransition.springify()}
+        >
           {initialChips.map(renderChip)}
           <TouchableOpacity
             style={styles.addButton}
@@ -150,17 +177,30 @@ const InputWithChip = React.memo(
           >
             <Text style={styles.addButtonText}>+</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
-        <TextInput
-          ref={inputRef}
-          style={styles.input}
-          value={inputValue}
-          onChangeText={handleInputChange}
-          placeholder="Enter section name..."
-          placeholderTextColor="#999"
-          accessibilityLabel="Section name input"
-        />
+        <View style={styles.inputContainer}>
+          <AnimatedTextInput
+            ref={inputRef}
+            style={[styles.input, inputAnimatedStyle]}
+            value={inputValue}
+            onChangeText={handleInputChange}
+            placeholder="Enter section name..."
+            placeholderTextColor="#999"
+            accessibilityLabel="Section name input"
+            entering={FadeIn.duration(300)}
+            layout={LinearTransition}
+          />
+          {inputValue !== selectedChip?.label &&
+            !selectedChip?.value.includes("new-") && (
+              <Button
+                title={`Update\nSection Name`}
+                textStyle={styles.updateButtonText}
+                style={styles.updateButton}
+                onPress={handleUpdateName}
+              />
+            )}
+        </View>
 
         {!loading && !inputValue && (
           <Animated.View entering={FadeIn} exiting={FadeOut}>
@@ -196,11 +236,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   chipText: {
-    color: "#333",
+    color: colors.background,
     fontSize: 14,
-  },
-  selectedChipText: {
-    color: "white",
     fontWeight: "500",
   },
   addButton: {
@@ -215,6 +252,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.primary,
   },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.primary,
@@ -222,6 +264,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     marginTop: 8,
+    flex: 1,
   },
   infoText: {
     color: "#666",
@@ -231,6 +274,13 @@ const styles = StyleSheet.create({
   },
   loading: {
     marginVertical: 20,
+  },
+  updateButtonText: {
+    fontSize: 12,
+    textAlign: "center",
+  },
+  updateButton: {
+    paddingVertical: 8,
   },
 });
 
