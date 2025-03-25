@@ -22,9 +22,9 @@ import {
 } from "@lib/sectionImageType";
 import { Section, SectionReq, SectionRes } from "@lib/sectionType";
 import { Venue, VenuesRes } from "@lib/venueType";
+import axios from "./axios";
 import { compressImage } from "./image";
 import url from "./url";
-import axios from "./axios";
 
 export const getVenues = async (): Promise<Venue[]> => {
   try {
@@ -264,6 +264,30 @@ export const saveContent = async (
     const { data } = await axios.post<SaveContentRes>(url.upload, params, {
       signal: signal,
     });
+
+    return data.message;
+  } catch (error) {
+    console.error("Upload error:", error);
+    throw error;
+  }
+};
+
+export const renameSectionFolder = async (
+  params: {
+    completedForm: string | SectionData;
+    folderId: string;
+    newName: string;
+  },
+  signal: AbortSignal | undefined
+): Promise<string> => {
+  try {
+    const { data } = await axios.post<{ message: string; folder?: any }>(
+      url.renameSectionFolder,
+      params,
+      {
+        signal: signal,
+      }
+    );
 
     return data.message;
   } catch (error) {

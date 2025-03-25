@@ -1,3 +1,4 @@
+import Icon from "@components/Icon";
 import colors from "@utils/colors";
 import React, { memo, useCallback } from "react";
 import {
@@ -15,6 +16,7 @@ const Button = ({
   title,
   isOnline = true,
   isLoading = false,
+  icon,
   style,
   textStyle,
   shouldVisible = true,
@@ -23,6 +25,7 @@ const Button = ({
   title: string;
   isOnline?: boolean;
   isLoading?: boolean;
+  icon?: string;
   style?: ViewStyle;
   textStyle?: TextStyle;
   shouldVisible?: boolean;
@@ -32,7 +35,7 @@ const Button = ({
       styles.button,
       !isOnline && styles.disabledButton,
       pressed && styles.pressedButton,
-      isLoading && styles.loadingButton,
+      (isLoading || icon) && styles.rowStyle,
       style,
     ],
     [isOnline, isLoading, style]
@@ -55,6 +58,7 @@ const Button = ({
       }
     >
       {isLoading && <ActivityIndicator color="white" />}
+      {icon && <Icon type="Feather" name={icon} size={24} />}
       <Text style={[styles.updateButtonText, textStyle]}>{title}</Text>
     </Pressable>
   );
@@ -96,7 +100,7 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  loadingButton: {
+  rowStyle: {
     flexDirection: "row",
     gap: 20,
   },
