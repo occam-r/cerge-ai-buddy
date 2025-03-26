@@ -1,7 +1,5 @@
 import axios from "axios";
 
-export const BASE_URL = "https://stingray-app-hu6at.ondigitalocean.app";
-
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: {
