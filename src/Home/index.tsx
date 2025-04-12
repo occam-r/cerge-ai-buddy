@@ -126,9 +126,9 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
                 ...(Array.isArray(serverData) ? serverData : []),
                 ...(Array.isArray(offlineData)
                   ? (offlineData as any[]).map((item: any) => ({
-                    ...item,
-                    isNew: false,
-                  }))
+                      ...item,
+                      isNew: false,
+                    }))
                   : []),
               ];
               dispatch({
@@ -141,13 +141,16 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
 
               if (Array.isArray(serverData)) {
                 serverData.forEach((section) =>
-                  sectionMergedData.set(section.value, section)
+                  sectionMergedData.set(section.value, section),
                 );
               }
 
               if (Array.isArray(offlineData)) {
                 offlineData.forEach((section) =>
-                  sectionMergedData.set(section.value, { ...section, isNew: false })
+                  sectionMergedData.set(section.value, {
+                    ...section,
+                    isNew: false,
+                  }),
                 );
               }
 
@@ -161,9 +164,9 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
                 ...(Array.isArray(serverData) ? serverData : []),
                 ...(Array.isArray(offlineData)
                   ? (offlineData as any[]).map((item: any) => ({
-                    ...item,
-                    isNew: false,
-                  }))
+                      ...item,
+                      isNew: false,
+                    }))
                   : []),
               ];
               dispatch({
@@ -190,7 +193,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         console.error(`Failed to fetch ${type}:`, error);
         ToastAndroid.show(
           `Failed to load ${type}. Please try again.`,
-          ToastAndroid.SHORT
+          ToastAndroid.SHORT,
         );
       } finally {
         if (isMounted.current) {
@@ -199,7 +202,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         }
       }
     },
-    [isOnline]
+    [isOnline],
   );
 
   const fetchVenues = useCallback(() => {
@@ -224,7 +227,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         requestId: `sections-${id}`,
       });
     },
-    [fetchData]
+    [fetchData],
   );
 
   const fetchSectionImage = useCallback(
@@ -232,7 +235,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       venueId: string,
       sectionLabel: string,
       sectionValue: string,
-      status?: ProcessMap
+      status?: ProcessMap,
     ) => {
       return fetchData<SectionImage[]>({
         onlineFetch: (signal) =>
@@ -244,7 +247,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         requestId: `images-${venueId}-${sectionValue}`,
       });
     },
-    [fetchData]
+    [fetchData],
   );
 
   const fetchSectionData = useCallback(
@@ -252,7 +255,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       venueId: string,
       sectionLabel: string,
       sectionValue: string,
-      status?: ProcessMap
+      status?: ProcessMap,
     ) => {
       return fetchData<Area[]>({
         onlineFetch: (signal) =>
@@ -264,7 +267,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         requestId: `data-${venueId}-${sectionValue}`,
       });
     },
-    [fetchData]
+    [fetchData],
   );
 
   const fetchPrompt = useCallback(async () => {
@@ -326,7 +329,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         handleCacheUpdate(CACHE_PATHS.OFFLINE_VENUES, [newVenue]);
       }
     },
-    [fetchSection]
+    [fetchSection],
   );
 
   const selectSectionHandler = useCallback(
@@ -349,17 +352,17 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           venueId,
           sectionLabel,
           sectionValue,
-          newSection?.status
+          newSection?.status,
         );
         fetchSectionData(
           venueId,
           sectionLabel,
           sectionValue,
-          newSection?.status
+          newSection?.status,
         );
       }
     },
-    [venue?.value, fetchSectionImage, fetchSectionData]
+    [venue?.value, fetchSectionImage, fetchSectionData],
   );
 
   const onVenueChange = useCallback((items: Venue[]) => {
@@ -379,7 +382,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         writeCache(CACHE_PATHS.OFFLINE_SECTIONS(venue.value), sections);
       }
     }, 500),
-    [venue?.value]
+    [venue?.value],
   );
 
   const handleRenameFolder = useCallback(
@@ -398,7 +401,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
               prompt: prompt,
             }),
           },
-          controller.signal
+          controller.signal,
         );
 
         if (isMounted.current) {
@@ -415,12 +418,12 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       }
     },
 
-    [venue, sectionData, prompt]
+    [venue, sectionData, prompt],
   );
 
   const handleModalToggle = useCallback(
     () => setIsModalOpen((prev) => !prev),
-    []
+    [],
   );
 
   const handlePromptUpdate = useCallback(
@@ -428,7 +431,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
       if (newPrompt === prompt) {
         ToastAndroid.show(
           "Please change prompt before updating prompt",
-          ToastAndroid.LONG
+          ToastAndroid.LONG,
         );
         return;
       }
@@ -456,7 +459,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         }
       }
     },
-    [prompt]
+    [prompt],
   );
 
   const setAdditionalInfo = useCallback(
@@ -468,25 +471,25 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           value: additionalInfo,
         },
       }),
-    []
+    [],
   );
 
   const handleContentDelete = useCallback(
     (sensoryType: SensoryType, index: number) =>
       dispatch({ type: "DELETE_ITEM", payload: { sensoryType, index } }),
-    []
+    [],
   );
 
   const handleContentAdd = useCallback(
     (sensoryType: SensoryType) =>
       dispatch({ type: "ADD_ITEM", payload: sensoryType }),
-    []
+    [],
   );
 
   const handleContentUpdate = useCallback(
     (sensoryType: SensoryType, value: string, index: number) =>
       dispatch({ type: "UPDATE_ITEM", payload: { sensoryType, value, index } }),
-    []
+    [],
   );
 
   const handleUploadImages = useCallback(async () => {
@@ -507,7 +510,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     dispatch({ type: "SET_LOADING", payload: { uploadImage: true } });
     ToastAndroid.show(
       `Uploading ${pendingImages.length} images...`,
-      ToastAndroid.SHORT
+      ToastAndroid.SHORT,
     );
 
     const controller = new AbortController();
@@ -522,7 +525,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           path,
           type,
           index,
-          controller.signal
+          controller.signal,
         );
 
         if (success) successCount++;
@@ -530,7 +533,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         if ((i + 1) % BATCH_SIZE === 0 || i === pendingImages.length - 1) {
           ToastAndroid.show(
             `Uploaded ${successCount} of ${pendingImages.length} images...`,
-            ToastAndroid.SHORT
+            ToastAndroid.SHORT,
           );
         }
       }
@@ -544,14 +547,16 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
 
         if (venue?.value && section?.label) {
           try {
-            const offlineSectionPath = CACHE_PATHS.OFFLINE_SECTIONS(venue.value)
+            const offlineSectionPath = CACHE_PATHS.OFFLINE_SECTIONS(
+              venue.value,
+            );
             const offlineImagePath = CACHE_PATHS.OFFLINE_IMAGES(
               venue.value,
-              section.value
+              section.value,
             );
             const offlineDataPath = CACHE_PATHS.OFFLINE_DATA(
               venue.value,
-              section.value
+              section.value,
             );
 
             const updatedSections: Section[] = [];
@@ -582,7 +587,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
     path: string,
     type: string,
     index: number,
-    signal: AbortSignal
+    signal: AbortSignal,
   ): Promise<boolean> => {
     if (!isMounted.current || signal.aborted) {
       return false;
@@ -621,7 +626,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
               prompt: prompt,
             },
           },
-          signal
+          signal,
         );
 
         if (isMounted.current && !signal.aborted) {
@@ -639,7 +644,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           if (retries > MAX_RETRIES) {
             console.error(
               `Failed to upload image ${index} after ${MAX_RETRIES} retries:`,
-              error
+              error,
             );
             dispatch({
               type: "UPDATE_IMAGE_STATUS",
@@ -648,7 +653,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           } else {
             const backoffDelay = Math.min(
               RETRY_DELAY_MS * Math.pow(2, retries - 1),
-              30000
+              30000,
             );
             await new Promise((resolve) => setTimeout(resolve, backoffDelay));
           }
@@ -668,7 +673,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           value: description,
         },
       }),
-    []
+    [],
   );
 
   const handleSaveImage = useCallback(
@@ -680,8 +685,8 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
             !sectionImages.some(
               (existingImage) =>
                 existingImage.id === newImage.id &&
-                existingImage.status !== "pending"
-            )
+                existingImage.status !== "pending",
+            ),
         );
 
         const newSectionData = [
@@ -710,11 +715,11 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         if (venue?.value && section?.value && uniqueImages.length > 0) {
           await writeCache(
             CACHE_PATHS.OFFLINE_IMAGES(venue?.value, section?.value),
-            uniqueImages
+            uniqueImages,
           );
           await writeCache(
             CACHE_PATHS.OFFLINE_DATA(venue?.value, section?.value),
-            newSectionData
+            newSectionData,
           );
         }
         ToastAndroid.show("Images saved successfully", ToastAndroid.SHORT);
@@ -725,14 +730,14 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         dispatch({ type: "SET_LOADING", payload: { saveImage: false } });
       }
     },
-    [sectionImages, sectionData, venue, section]
+    [sectionImages, sectionData, venue, section],
   );
 
   const handleGenerateContent = useCallback(async () => {
     if (sectionImages.length === 0) {
       ToastAndroid.show(
         "Please add images before generating content",
-        ToastAndroid.LONG
+        ToastAndroid.LONG,
       );
       return;
     }
@@ -749,7 +754,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           files: sectionImages,
           userPrompt: sectionData[0]?.promptInput || "",
         },
-        controller.signal
+        controller.signal,
       );
 
       if (isMounted.current) {
@@ -769,7 +774,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
         console.error(`Failed to generate content:`, error);
         ToastAndroid.show(
           "Failed to generate content. Please try again.",
-          ToastAndroid.LONG
+          ToastAndroid.LONG,
         );
       }
     } finally {
@@ -799,7 +804,7 @@ const Home = ({ isOnline }: { isOnline: boolean }) => {
           promptInput: sectionData[0]?.promptInput ?? "",
           sensoryData: JSON.stringify(sectionData[0]),
         },
-        controller.signal
+        controller.signal,
       );
 
       if (isMounted.current) {

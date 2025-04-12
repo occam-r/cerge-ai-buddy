@@ -38,7 +38,7 @@ export const getVenues = async (): Promise<Venue[]> => {
   } catch (error) {
     console.error(
       "Error fetching Venues:",
-      error instanceof Error ? error.message : error
+      error instanceof Error ? error.message : error,
     );
     return [];
   }
@@ -46,7 +46,7 @@ export const getVenues = async (): Promise<Venue[]> => {
 
 export const getSection = async (
   params: SectionReq,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<Section[]> => {
   try {
     const { data } = await axios.get<SectionRes>(url.sectionList, {
@@ -62,7 +62,7 @@ export const getSection = async (
   } catch (error) {
     console.error(
       "Error fetching Section:",
-      error instanceof Error ? error.message : error
+      error instanceof Error ? error.message : error,
     );
     return [];
   }
@@ -70,7 +70,7 @@ export const getSection = async (
 
 export const getSectionImages = async (
   params: SectionImageReq,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<SectionImage[]> => {
   try {
     const { data } = await axios.get<SectionImageRes>(url.sectionImages, {
@@ -85,7 +85,7 @@ export const getSectionImages = async (
   } catch (error) {
     console.error(
       "Error fetching Section Image:",
-      error instanceof Error ? error.message : error
+      error instanceof Error ? error.message : error,
     );
     return [];
   }
@@ -93,7 +93,7 @@ export const getSectionImages = async (
 
 export const getSectionData = async (
   params: SectionDataReq,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<Area[]> => {
   try {
     const { data } = await axios.get<SectionDataRes>(url.sectionData, {
@@ -110,14 +110,14 @@ export const getSectionData = async (
   } catch (error) {
     console.error(
       "Error fetching Section Data:",
-      error instanceof Error ? error.message : error
+      error instanceof Error ? error.message : error,
     );
     return [];
   }
 };
 
 export const getPrompts = async (
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<string> => {
   try {
     const { data } = await axios.get<PromptDataRes>(url.prompt, { signal });
@@ -130,7 +130,7 @@ export const getPrompts = async (
   } catch (error) {
     console.error(
       "Error fetching Prompts:",
-      error instanceof Error ? error.message : error
+      error instanceof Error ? error.message : error,
     );
     return "";
   }
@@ -138,7 +138,7 @@ export const getPrompts = async (
 
 export const updatePrompt = async (
   prompt: string,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<string> => {
   try {
     const { data } = await axios.post<{ message: string }>(url.updatePrompt, {
@@ -150,7 +150,7 @@ export const updatePrompt = async (
   } catch (error) {
     console.error(
       "Error updating Prompts:",
-      error instanceof Error ? error.message : error
+      error instanceof Error ? error.message : error,
     );
     return "";
   }
@@ -158,7 +158,7 @@ export const updatePrompt = async (
 
 export const generateContent = async (
   { files, userPrompt }: ContentReq,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<Area> => {
   try {
     const CONCURRENCY_LIMIT = 4;
@@ -208,7 +208,7 @@ export const generateContent = async (
           "Content-Type": "multipart/form-data",
         },
         signal: signal,
-      }
+      },
     );
 
     const content = JSON.parse(data.description) as Content;
@@ -228,7 +228,7 @@ export const generateContent = async (
 
 export const uploadImages = async (
   { image, completedForm, sectionName, venueName }: UploadImageReq,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<UploadImageRes> => {
   try {
     const formData = new FormData();
@@ -246,7 +246,7 @@ export const uploadImages = async (
           "Content-Type": "multipart/form-data",
         },
         signal: signal,
-      }
+      },
     );
 
     return data;
@@ -258,7 +258,7 @@ export const uploadImages = async (
 
 export const saveContent = async (
   params: SaveContentReq,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<string> => {
   try {
     const { data } = await axios.post<SaveContentRes>(url.upload, params, {
@@ -278,7 +278,7 @@ export const renameSectionFolder = async (
     folderId: string;
     newName: string;
   },
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
 ): Promise<string> => {
   try {
     const { data } = await axios.post<{ message: string; folder?: any }>(
@@ -286,7 +286,7 @@ export const renameSectionFolder = async (
       params,
       {
         signal: signal,
-      }
+      },
     );
 
     return data.message;

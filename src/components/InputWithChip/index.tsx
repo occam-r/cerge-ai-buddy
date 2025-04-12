@@ -47,7 +47,7 @@ const InputWithChip = React.memo(
 
     const chipsMap = useMemo(
       () => new Map(initialChips.map((chip) => [chip.value, chip])),
-      [initialChips]
+      [initialChips],
     );
 
     const handleAddChip = useCallback(() => {
@@ -72,31 +72,31 @@ const InputWithChip = React.memo(
         const updatedChips = initialChips.map((chip) =>
           chip.value === selectedChip?.value
             ? {
-              ...chip,
-              label: text,
-            }
-            : chip
+                ...chip,
+                label: text,
+              }
+            : chip,
         );
         onChange?.(
           updatedChips,
-          updatedChips.find((chip) => chip.value === selectedChip?.value)
+          updatedChips.find((chip) => chip.value === selectedChip?.value),
         );
       },
-      [initialChips, selectedChip, onChange]
+      [initialChips, selectedChip, onChange],
     );
 
     const handleUpdateName = useCallback(() => {
       const updatedChips = initialChips.map((chip) =>
         chip.value === selectedChip?.value
           ? {
-            ...chip,
-            label: inputValue.replace(CHIP_REGEX, ""),
-          }
-          : chip
+              ...chip,
+              label: inputValue.replace(CHIP_REGEX, ""),
+            }
+          : chip,
       );
       onChange?.(
         updatedChips,
-        updatedChips.find((chip) => chip.value === selectedChip?.value)
+        updatedChips.find((chip) => chip.value === selectedChip?.value),
       );
     }, [inputValue, initialChips, onChange, selectedChip]);
 
@@ -106,7 +106,7 @@ const InputWithChip = React.memo(
         const selected = chipsMap.get(chip.value);
         setInputValue((selected?.label ?? "").replace(CHIP_REGEX, ""));
       },
-      [chipsMap, setSelectedChip]
+      [chipsMap, setSelectedChip],
     );
 
     const inputAnimatedStyle = useAnimatedStyle(() => {
@@ -117,7 +117,6 @@ const InputWithChip = React.memo(
 
     const renderChip = useCallback(
       (item: Section) => {
-        console.log("KKJJ", item.status);
         const isSelected = selectedChip?.value === item.value;
 
         return (
@@ -129,8 +128,9 @@ const InputWithChip = React.memo(
             style={[
               styles.chip,
               {
-                backgroundColor:
-                  isSelected ? colors.primary : colors[item.status ?? "processed"],
+                backgroundColor: isSelected
+                  ? colors.primary
+                  : colors[item.status ?? "processed"],
               },
             ]}
             onPress={() => handleSelectChip(item)}
@@ -155,7 +155,7 @@ const InputWithChip = React.memo(
           </AnimatedTouchable>
         );
       },
-      [handleSelectChip, selectedChip]
+      [handleSelectChip, selectedChip],
     );
 
     if (loading)
@@ -211,7 +211,7 @@ const InputWithChip = React.memo(
         )}
       </View>
     );
-  }
+  },
 );
 
 const styles = StyleSheet.create({

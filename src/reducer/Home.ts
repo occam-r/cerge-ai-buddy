@@ -92,7 +92,7 @@ export const homeReducer = (state: State, action: Action): State => {
         sectionData: state.sectionData.map((area) => ({
           ...area,
           [action.payload.sensoryType]: area[action.payload.sensoryType].filter(
-            (_, i) => i !== action.payload.index
+            (_, i) => i !== action.payload.index,
           ),
         })),
       };
@@ -114,7 +114,7 @@ export const homeReducer = (state: State, action: Action): State => {
             (item, i) =>
               i === action.payload.index
                 ? { ...item, value: action.payload.value }
-                : item
+                : item,
           ),
         })),
       };
@@ -134,7 +134,7 @@ export const homeReducer = (state: State, action: Action): State => {
     case "DELETE_IMAGE": {
       const deletedIndex = action.payload;
       const newSectionImages = state.sectionImages.filter(
-        (_, idx) => idx !== deletedIndex
+        (_, idx) => idx !== deletedIndex,
       );
 
       return {
@@ -143,10 +143,10 @@ export const homeReducer = (state: State, action: Action): State => {
         sectionData: state.sectionData.map((area, areaIndex) => {
           if (areaIndex === 0) {
             const newShadowCorrections = area.shadowCorrections?.filter(
-              (_, idx) => idx !== deletedIndex
+              (_, idx) => idx !== deletedIndex,
             );
             const newHeroImages = area.heroImages?.filter(
-              (_, idx) => idx !== deletedIndex
+              (_, idx) => idx !== deletedIndex,
             );
             return {
               ...area,
@@ -161,7 +161,7 @@ export const homeReducer = (state: State, action: Action): State => {
     case "UPDATE_IMAGE_STATUS": {
       const { index, status } = action.payload;
       const updatedImages = state.sectionImages.map((img, idx) =>
-        idx === index ? { ...img, status } : img
+        idx === index ? { ...img, status } : img,
       );
       return { ...state, sectionImages: updatedImages };
     }

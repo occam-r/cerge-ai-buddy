@@ -7,13 +7,13 @@ import {
 } from "@reducer/Modification";
 import colors from "@utils/colors";
 import * as ImagePicker from "expo-image-picker";
-import * as MediaLibrary from "expo-media-library";
 import React, {
   memo,
   useCallback,
   useEffect,
   useMemo,
   useReducer,
+  useState,
 } from "react";
 import {
   Image,
@@ -28,10 +28,12 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { useAnimatedRef } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { CameraCapturedPicture } from "expo-camera";
 import Sortable, {
   OrderChangeParams,
   SortableGridRenderItem,
 } from "react-native-sortables";
+import CameraScreen from "../components/CameraScreen";
 
 interface CheckboxItemProps {
   isChecked: boolean;
@@ -79,7 +81,7 @@ const CheckboxItem = memo(
       />
       <Text style={styles.checkboxLabel}>{label}</Text>
     </TouchableOpacity>
-  )
+  ),
 );
 
 const GridItem = memo(
@@ -98,7 +100,7 @@ const GridItem = memo(
             ? item?.path
             : `data:${item.type};base64,${item.blob}`,
       }),
-      [item.type, item.blob, item?.path]
+      [item.type, item.blob, item?.path],
     );
 
     return (
@@ -138,7 +140,7 @@ const GridItem = memo(
         </View>
       </View>
     );
-  }
+  },
 );
 
 const ModificationModal = ({
@@ -152,8 +154,9 @@ const ModificationModal = ({
   const scrollableRef = useAnimatedRef<Animated.ScrollView>();
   const [state, dispatch] = useReducer(
     modificationReducer,
-    modificationInitialState
+    modificationInitialState,
   );
+  const [showCamera, setShowCamera] = useState(false);
 
   const { heroImages, orderChanged, sectionImages, shadowCorrections } = state;
 
@@ -188,7 +191,7 @@ const ModificationModal = ({
       deleteImage: (id: string) =>
         dispatch({ type: "DELETE_IMAGE", payload: id }),
     }),
-    []
+    [],
   );
 
   const renderItem: SortableGridRenderItem<SectionImage> = useCallback(
@@ -202,7 +205,7 @@ const ModificationModal = ({
         onDeleteImage={() => eventHandlers.deleteImage(item.id)}
       />
     ),
-    [shadowCorrections, heroImages, eventHandlers]
+    [shadowCorrections, heroImages, eventHandlers],
   );
 
   const handleOrderChange = useCallback((params: OrderChangeParams) => {
@@ -266,57 +269,49 @@ const ModificationModal = ({
     handleOnClose,
   ]);
 
-  const handleImagePick = useCallback(
-    async (type: "gallery" | "camera") => {
+  const handleImagePick = useCallback(async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsMultipleSelection: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (result.canceled) {
+        ToastAndroid.show(`You did not select any image`, ToastAndroid.SHORT);
+        return;
+      }
+
+      await processPickedImages(result.assets);
+    } catch (error) {
+      console.error("Error picking images:", error);
+      ToastAndroid.show("Failed to process images", ToastAndroid.SHORT);
+    }
+  }, [sectionImages, shadowCorrections, heroImages]);
+
+  const processPickedImages = useCallback(
+    async (assets: ImagePicker.ImagePickerAsset[]) => {
+      const timestamp = Date.now();
+
+      const newImages = assets.map((asset, index) => ({
+        name: asset.fileName || `Image-${index + 1}`,
+        type: asset.mimeType || "image/jpeg",
+        lastModified: timestamp,
+        size: asset.fileSize || 0,
+        id: `${timestamp}-${index}`,
+        path: asset.uri,
+        blob: asset.base64 ?? "",
+        status: "pending" as Status,
+      }));
+
       try {
-        const picker =
-          type === "gallery"
-            ? ImagePicker.launchImageLibraryAsync
-            : ImagePicker.launchCameraAsync;
-
-        const result = await picker({
-          allowsMultipleSelection: type === "gallery",
-          aspect: type === "gallery" ? [4, 3] : [16, 9],
-          quality: 0.8,
-        });
-
-        if (result.canceled) {
-          ToastAndroid.show(
-            `You did not ${type === "gallery" ? "select" : "take"} any image`,
-            ToastAndroid.SHORT
-          );
-          return;
-        }
-
-        const timestamp = Date.now();
-
-        const newImages = result.assets.map((asset, index) => ({
-          name: asset.fileName || `Image-${index + 1}`,
-          type: asset.mimeType || "image/jpeg",
-          lastModified: timestamp,
-          size: asset.fileSize || 0,
-          id: `${timestamp}-${index}`,
-          path: asset.uri,
-          blob: asset.base64 ?? "",
-          status: "pending" as Status,
-        }));
-
-        if (type === "camera" && result.assets.length > 0) {
-          try {
-            await Promise.all(
-              result.assets.map((asset) =>
-                MediaLibrary.saveToLibraryAsync(asset.uri)
-              )
-            );
-          } catch (saveError) {
-            console.error("Failed to save images to library:", saveError);
-          }
-        }
-
-        const imageSettings = newImages.reduce((acc, img) => {
-          acc[img.id] = false;
-          return acc;
-        }, {} as Record<string, boolean>);
+        const imageSettings = newImages.reduce(
+          (acc, img) => {
+            acc[img.id] = false;
+            return acc;
+          },
+          {} as Record<string, boolean>,
+        );
 
         dispatch({
           type: "SET_MODAL_DATA",
@@ -336,17 +331,40 @@ const ModificationModal = ({
           animated: true,
         });
       } catch (error) {
-        console.error("Error picking images:", error);
-        ToastAndroid.show(
-          "Failed to process images. Please try again.",
-          ToastAndroid.SHORT
-        );
+        console.error("Error processing images:", error);
+        ToastAndroid.show("Failed to process images", ToastAndroid.SHORT);
       }
     },
-    [sectionImages, shadowCorrections, heroImages]
+    [sectionImages, shadowCorrections, heroImages],
+  );
+
+  const handleCameraSave = useCallback(
+    async (images: Array<CameraCapturedPicture>) => {
+      setShowCamera(false);
+      await processPickedImages(images);
+    },
+    [processPickedImages],
   );
 
   const keyExtractor = useCallback((item: SectionImage) => item.id, []);
+
+  if (showCamera) {
+    return (
+      <Modal
+        visible={isOpen}
+        statusBarTranslucent
+        animationType="slide"
+        onRequestClose={() => setShowCamera(false)}
+      >
+        <SafeAreaView style={styles.container}>
+          <CameraScreen
+            onClose={() => setShowCamera(false)}
+            onFinish={handleCameraSave}
+          />
+        </SafeAreaView>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -376,14 +394,14 @@ const ModificationModal = ({
           <View style={styles.footer}>
             <View style={styles.footerButton}>
               <Button
-                onPress={() => handleImagePick("camera")}
+                onPress={() => setShowCamera(true)}
                 style={styles.cameraGallery}
                 title="Take Photo"
                 textStyle={styles.text}
                 icon="camera"
               />
               <Button
-                onPress={() => handleImagePick("gallery")}
+                onPress={handleImagePick}
                 style={styles.cameraGallery}
                 title="Gallery"
                 textStyle={styles.text}

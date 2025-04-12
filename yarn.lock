@@ -3025,6 +3025,7 @@ __metadata:
     axios: "npm:^1.8.1"
     expo: "npm:^52.0.40"
     expo-build-properties: "npm:^0.13.2"
+    expo-camera: "npm:~16.0.18"
     expo-file-system: "npm:~18.0.11"
     expo-image-manipulator: "npm:~13.0.6"
     expo-image-picker: "npm:~16.0.6"
@@ -3798,6 +3799,23 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10/88a2b0f491112398314502cc51172d4695d62ed9998fa96d8630450a5451f5f9779e0737c997175502ab16a3eb0194efb1cac44be44d5bfa2025054e4e4ce1c7
+  languageName: node
+  linkType: hard
+
+"expo-camera@npm:~16.0.18":
+  version: 16.0.18
+  resolution: "expo-camera@npm:16.0.18"
+  dependencies:
+    invariant: "npm:^2.2.4"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+    react-native-web: "*"
+  peerDependenciesMeta:
+    react-native-web:
+      optional: true
+  checksum: 10/0c0de1eb7b24a8973565e82c2be85274349fbacd77f7a0e0dcfb11cafae63c2bbc0f708fdbabb8074109fc1577d61a5a4fcae0203a630022c4de236e7f171a36
   languageName: node
   linkType: hard
 

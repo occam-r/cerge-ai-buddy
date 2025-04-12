@@ -32,7 +32,7 @@ const Prompt = ({
     if (!isOnline) {
       ToastAndroid.show(
         "Cannot get prompt offline. Please connect to the internet.",
-        ToastAndroid.LONG
+        ToastAndroid.LONG,
       );
       return;
     }

@@ -28,7 +28,7 @@ const App = () => {
         { text: "Cancel", style: "cancel" },
         { text: "Exit", onPress: () => BackHandler.exitApp() },
       ],
-      { cancelable: true }
+      { cancelable: true },
     );
     return true;
   }, []);
@@ -41,7 +41,7 @@ const App = () => {
     try {
       netInfoUnsubscribe = NetInfo.addEventListener((state) => {
         setIsOnline(
-          state.isConnected === true && state.type !== NetInfoStateType.none
+          state.isConnected === true && state.type !== NetInfoStateType.none,
         );
       });
 
@@ -55,7 +55,7 @@ const App = () => {
 
       const backHandler = BackHandler.addEventListener(
         "hardwareBackPress",
-        handleBackAction
+        handleBackAction,
       );
 
       return () => {

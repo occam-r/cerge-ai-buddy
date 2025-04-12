@@ -20,6 +20,7 @@ const Button = ({
   style,
   textStyle,
   shouldVisible = true,
+  disabled = false,
 }: {
   onPress: () => void;
   title: string;
@@ -29,16 +30,17 @@ const Button = ({
   style?: ViewStyle;
   textStyle?: TextStyle;
   shouldVisible?: boolean;
+  disabled?: boolean;
 }) => {
   const getButtonStyle = useCallback(
     ({ pressed }: { pressed: boolean }) => [
       styles.button,
-      !isOnline && styles.disabledButton,
+      (!isOnline || disabled) && styles.disabledButton,
       pressed && styles.pressedButton,
       (isLoading || icon) && styles.rowStyle,
       style,
     ],
-    [isOnline, isLoading, style]
+    [isOnline, isLoading, disabled, style],
   );
 
   if (!shouldVisible) return null;
@@ -48,7 +50,7 @@ const Button = ({
       onPress={onPress}
       style={getButtonStyle}
       android_ripple={{ color: "#ffffff44", borderless: false }}
-      disabled={isLoading || !isOnline}
+      disabled={isLoading || disabled || !isOnline}
       accessibilityRole="button"
       accessibilityState={{ disabled: isLoading || !isOnline }}
       hitSlop={

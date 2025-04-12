@@ -61,7 +61,7 @@ export const modificationReducer = (state: State, action: Action): State => {
           acc[curr] = false;
           return acc;
         },
-        {} as shadowHeroType
+        {} as shadowHeroType,
       );
       updatedHeroImages[key] = !state.heroImages[key];
 
@@ -80,7 +80,7 @@ export const modificationReducer = (state: State, action: Action): State => {
       return {
         ...state,
         sectionImages: state.sectionImages.filter(
-          (item) => item.id !== action.payload
+          (item) => item.id !== action.payload,
         ),
         shadowCorrections: remainingShadows,
         heroImages: remainingHeroes,

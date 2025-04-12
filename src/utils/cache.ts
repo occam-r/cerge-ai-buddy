@@ -45,7 +45,7 @@ export const readCache = async <T>(filePath: string): Promise<T | null> => {
 // Helper functions for writing cache
 export const writeCache = async <T>(
   filePath: string,
-  data: T
+  data: T,
 ): Promise<void> => {
   try {
     await FileSystem.writeAsStringAsync(filePath, JSON.stringify(data));
@@ -57,7 +57,7 @@ export const writeCache = async <T>(
 // Helper functions for update cache
 export const handleCacheUpdate = async <T>(
   offlineCachePath: string,
-  newItems: T[]
+  newItems: T[],
 ) => {
   try {
     // Read existing offline cache
@@ -67,8 +67,8 @@ export const handleCacheUpdate = async <T>(
     const uniqueNewItems = newItems.filter(
       (newItem) =>
         !existingOffline.some(
-          (existingItem: any) => existingItem.value === (newItem as any).value
-        )
+          (existingItem: any) => existingItem.value === (newItem as any).value,
+        ),
     );
 
     // Update offline cache if there are new items

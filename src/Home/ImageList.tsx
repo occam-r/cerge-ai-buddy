@@ -39,7 +39,7 @@ const ImageItem = memo(({ item }: { item: SectionImage }) => {
       uri:
         item.blob == "" ? item?.path : `data:${item.type};base64,${item.blob}`,
     }),
-    [item.type, item.blob, item?.path]
+    [item.type, item.blob, item?.path],
   );
 
   return (
@@ -73,7 +73,7 @@ const ImageList = ({
 }) => {
   const renderItem = useCallback<ListRenderItem<SectionImage>>(
     ({ item }) => <ImageItem item={item} />,
-    []
+    [],
   );
 
   const keyExtractor = useCallback((item: SectionImage) => item.id, []);
@@ -88,7 +88,7 @@ const ImageList = ({
       nestedScrollEnabled: true,
       contentContainerStyle: styles.listContent,
     }),
-    []
+    [],
   );
 
   if (loading) {

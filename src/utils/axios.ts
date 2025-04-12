@@ -13,15 +13,15 @@ axiosInstance.interceptors.request.use(
   (config) => {
     console.debug(
       `[REQUEST] ${config.method?.toUpperCase()} ${config.url} ${JSON.stringify(
-        config.params
-      )}`
+        config.params,
+      )}`,
     );
     return config;
   },
   (error) => {
     console.error("[REQUEST ERROR]", error.message);
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response Interceptor
@@ -30,7 +30,7 @@ axiosInstance.interceptors.response.use(
     console.debug(
       `[RESPONSE] ${response.config.method?.toUpperCase()} ${
         response.config.url
-      } ${JSON.stringify(response.data?.message)}`
+      } ${JSON.stringify(response.data?.message)}`,
     );
     return response;
   },
@@ -45,7 +45,7 @@ axiosInstance.interceptors.response.use(
     });
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosInstance;

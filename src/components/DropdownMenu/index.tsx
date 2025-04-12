@@ -68,7 +68,7 @@ const DropdownMenu = React.memo(
           </Text>
         ) : (
           part
-        )
+        ),
       );
     };
 
@@ -106,7 +106,7 @@ const DropdownMenu = React.memo(
             dropdownHeight.value,
             [0, DROPDOWN_MAX_HEIGHT],
             [-10, 0],
-            Extrapolation.CLAMP
+            Extrapolation.CLAMP,
           ),
         },
       ],
@@ -144,7 +144,7 @@ const DropdownMenu = React.memo(
     };
 
     const hasExactMatch = initialItem?.some(
-      (item) => item.label.toLowerCase() === searchText.toLowerCase()
+      (item) => item.label.toLowerCase() === searchText.toLowerCase(),
     );
 
     // Tap gesture for closing dropdown
@@ -158,14 +158,18 @@ const DropdownMenu = React.memo(
       if (!searchText.trim()) return initialItem;
 
       return [...initialItem].sort((a, b) => {
-        const aStartsWith = a.label.toLowerCase().startsWith(searchText.toLowerCase());
-        const bStartsWith = b.label.toLowerCase().startsWith(searchText.toLowerCase());
+        const aStartsWith = a.label
+          .toLowerCase()
+          .startsWith(searchText.toLowerCase());
+        const bStartsWith = b.label
+          .toLowerCase()
+          .startsWith(searchText.toLowerCase());
 
         if (aStartsWith && !bStartsWith) return -1;
         if (!aStartsWith && bStartsWith) return 1;
         return 0;
       });
-    }, [initialItem, searchText])
+    }, [initialItem, searchText]);
 
     return (
       <View style={[styles.container, style]}>
@@ -233,10 +237,10 @@ const DropdownMenu = React.memo(
                       style={[
                         styles.item,
                         {
-                          backgroundColor:
-                            isExactMatch ? colors.primary : colors[item.status ?? "background"],
-                        }
-
+                          backgroundColor: isExactMatch
+                            ? colors.primary
+                            : colors[item.status ?? "background"],
+                        },
                       ]}
                       onPress={() => {
                         if (selectedItem?.value === item.value) {
@@ -262,7 +266,7 @@ const DropdownMenu = React.memo(
         </GestureDetector>
       </View>
     );
-  }
+  },
 );
 
 const styles = StyleSheet.create({

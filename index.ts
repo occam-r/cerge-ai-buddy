@@ -1,11 +1,11 @@
-import { registerRootComponent } from 'expo';
+import { registerRootComponent } from "expo";
 
-import App from './src';
+import App from "./src";
 
 if (__DEV__) {
-	import("./ReactotronConfig").then(() =>
-		console.info("Reactotron Configured"),
-	);
+  import("./ReactotronConfig").then(() =>
+    console.info("Reactotron Configured"),
+  );
 }
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
